@@ -411,7 +411,6 @@ io.on('connection', (socket) => {
         console.log('📦 startGame event received from socket:', socket.id);
         const player = players.get(socket.id);
         console.log('📦 Player found:', player ? `${player.name} (room: ${player.roomId})` : 'null');
-        console.log('📦 All players:', Array.from(players.entries()).map(([id, p]) => `${id}: ${p.name}`));
         
         if (!player || !player.roomId) {
             console.log('📦 Error: No player or room ID');
@@ -421,7 +420,6 @@ io.on('connection', (socket) => {
         
         const room = rooms.get(player.roomId);
         console.log('📦 Room found:', room ? `${room.id} (host: ${room.hostId})` : 'null');
-        console.log('📦 All rooms:', Array.from(rooms.keys()));
         
         if (!room) {
             console.log('📦 Error: Room not found');
@@ -436,6 +434,7 @@ io.on('connection', (socket) => {
         console.log('📦 Host check - By socket:', isHostBySocket, 'By name:', isHostByName);
         console.log('📦 Room host name:', room.hostName, 'Player name:', player?.name);
         
+        // Allow host to start game if either condition is true
         if (!isHostBySocket && !isHostByName) {
             console.log('📦 Error: Not host. Room host:', room.hostId, 'Current socket:', socket.id);
             socket.emit('error', 'Only host can start the game');
@@ -443,12 +442,22 @@ io.on('connection', (socket) => {
         }
         
         console.log('📦 Attempting to start game, player count:', room.players.size);
-        if (room.startGame()) {
-            console.log('📦 Game started successfully');
-            io.to(player.roomId).emit('gameStarted', room.getGameState());
-        } else {
-            console.log('📦 Error: Not enough players');
-            socket.emit('error', 'Need at least 1 player to start turn-based game');
+        
+        // Try to start the game
+        try {
+            if (room.startGame()) {
+                console.log('📦 Game started successfully, emitting gameStarted event');
+                const gameState = room.getGameState();
+                console.log('📦 Game state:', gameState.gameState, 'Round:', gameState.currentRound);
+                io.to(player.roomId).emit('gameStarted', gameState);
+                console.log('📦 gameStarted event emitted to room:', player.roomId);
+            } else {
+                console.log('📦 Error: Could not start game - insufficient players');
+                socket.emit('error', 'Need at least 1 player to start turn-based game');
+            }
+        } catch (error) {
+            console.error('📦 Error starting game:', error);
+            socket.emit('error', 'Failed to start game: ' + error.message);
         }
     });
 

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Start Server</title>
+    <style>
+        body { font-family: Arial; margin: 50px; text-align: center; }
+        .btn { padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }
+        .primary { background: #4CAF50; color: white; border: none; border-radius: 5px; }
+        .secondary { background: #2196F3; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🎮 Guess the Word - Multiplayer Game</h1>
+    <p>Server management</p>
+    
+    <button class="btn primary" onclick="window.open('http://localhost:3001', '_blank')">🎯 Open Game</button>
+    <button class="btn secondary" onclick="testConnection()">🔌 Test Connection</button>
+    
+    <div id="status" style="margin-top: 20px;"></div>
+    
+    <script>
+        function testConnection() {
+            const status = document.getElementById('status');
+            status.innerHTML = '🔄 Testing connection...';
+            
+            fetch('http://localhost:3001')
+                .then(response => {
+                    if (response.ok) {
+                        status.innerHTML = '✅ Server is running! <a href="http://localhost:3001" target="_blank">Click here to play</a>';
+                        status.style.color = 'green';
+                    } else {
+                        status.innerHTML = '❌ Server error: ' + response.status;
+                        status.style.color = 'red';
+                    }
+                })
+                .catch(error => {
+                    status.innerHTML = '❌ Server not running. Please run start-server.bat first.';
+                    status.style.color = 'red';
+                });
+        }
+        
+        // Auto test on load
+        window.onload = testConnection;
+    </script>
+</body>
+</html>

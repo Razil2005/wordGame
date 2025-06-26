@@ -606,6 +606,29 @@ class GameClient {
         }
         
         console.log('🚀 About to emit startGame event...');
+        
+        // Add event listeners to handle response
+        const startGameTimeout = setTimeout(() => {
+            console.error('🚀 Start game timeout - no response from server');
+            this.showNotification('Server did not respond. Please try refreshing the page.', 'error');
+        }, 10000);
+        
+        // Listen for game started event
+        const onGameStarted = (data) => {
+            clearTimeout(startGameTimeout);
+            console.log('🚀 Game started successfully!');
+            this.socket.off('gameStarted', onGameStarted);
+        };
+        
+        const onError = (message) => {
+            clearTimeout(startGameTimeout);
+            console.error('🚀 Start game error:', message);
+            this.socket.off('error', onError);
+        };
+        
+        this.socket.once('gameStarted', onGameStarted);
+        this.socket.once('error', onError);
+        
         this.socket.emit('startGame');
         console.log('🚀 startGame event emitted successfully');
         this.showNotification('Starting turn-based game...', 'info');
