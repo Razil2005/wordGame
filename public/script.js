@@ -573,11 +573,19 @@ class GameClient {
     }
 
     startGame() {
+        console.log('startGame called - isHost:', this.isHost, 'socket connected:', this.socket.connected);
+        
         if (!this.isHost) {
             this.showNotification('Only the host can start the game', 'error');
             return;
         }
         
+        if (!this.socket.connected) {
+            this.showNotification('Not connected to server', 'error');
+            return;
+        }
+        
+        console.log('Emitting startGame event...');
         this.socket.emit('startGame');
         this.showNotification('Starting turn-based game...', 'info');
     }
@@ -989,13 +997,16 @@ class GameClient {
         if (this.gamePlayArea) this.gamePlayArea.style.display = 'none';
         if (this.gameOverArea) this.gameOverArea.style.display = 'none';
         
-        // Show start button for host if there are players
+        // Show start button for host if there are at least 2 players
         if (this.startGameBtn) {
-            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 1) {
+            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 2) {
                 console.log('Showing start game button for host');
                 this.startGameBtn.style.display = 'block';
             } else {
-                console.log('Hiding start game button - not host or no players');
+                console.log('Hiding start game button - not host or insufficient players:', {
+                    isHost: this.isHost,
+                    playerCount: this.gameState?.players?.length
+                });
                 this.startGameBtn.style.display = 'none';
             }
         }

@@ -79,6 +79,9 @@ class GameRoom {
     }
 
     addPlayer(playerId, playerName) {
+        console.log(`🔄 Adding player ${playerName} (${playerId}) to room ${this.id}`);
+        console.log(`🔄 Current players before add:`, Array.from(this.players.keys()));
+        
         // Always set/update the player (this will replace if already exists)
         this.players.set(playerId, {
             id: playerId,
@@ -86,6 +89,9 @@ class GameRoom {
             score: 0,
             isHost: playerId === this.hostId
         });
+        
+        console.log(`🔄 Current players after add:`, Array.from(this.players.keys()));
+        console.log(`🔄 Player ${playerName} is host:`, playerId === this.hostId);
         
         // Update player order for turn rotation
         this.updatePlayerOrder();
@@ -387,18 +393,32 @@ io.on('connection', (socket) => {
 
     // Start game
     socket.on('startGame', () => {
+        console.log('📦 startGame event received from:', socket.id);
         const player = players.get(socket.id);
-        if (!player || !player.roomId) return;
+        console.log('📦 Player found:', player ? player.name : 'null');
+        
+        if (!player || !player.roomId) {
+            console.log('📦 Error: No player or room ID');
+            socket.emit('error', 'Player not found or not in a room');
+            return;
+        }
         
         const room = rooms.get(player.roomId);
+        console.log('📦 Room found:', room ? room.id : 'null');
+        console.log('📦 Room host:', room ? room.hostId : 'null', 'Current socket:', socket.id);
+        
         if (!room || room.hostId !== socket.id) {
+            console.log('📦 Error: Not host or room not found');
             socket.emit('error', 'Only host can start the game');
             return;
         }
         
+        console.log('📦 Attempting to start game, player count:', room.players.size);
         if (room.startGame()) {
+            console.log('📦 Game started successfully');
             io.to(player.roomId).emit('gameStarted', room.getGameState());
         } else {
+            console.log('📦 Error: Not enough players');
             socket.emit('error', 'Need at least 2 players to start turn-based game');
         }
     });
