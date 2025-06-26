@@ -322,7 +322,11 @@ io.on('connection', (socket) => {
             };
             
             console.log('Sending letterGuessed event to room:', eventData);
+            // Send to ALL players in the room (including the guesser)
             io.to(player.roomId).emit('letterGuessed', eventData);
+            
+            // Also send a general game update to ensure all players are synchronized
+            io.to(player.roomId).emit('gameUpdate', room.getGameState());
             
             // If someone won, send a special winner announcement to all players
             if (result.gameWon && result.winner) {

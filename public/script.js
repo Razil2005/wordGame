@@ -327,11 +327,11 @@ class GameClient {
         this.socket.on('letterGuessed', (data) => {
             console.log('Letter guessed response:', data);
             
-            // Update game state
+            // Update game state immediately for all players
             this.gameState = data.gameState;
             this.updateGameDisplay();
             
-            // Show result
+            // Show result with player name for transparency
             if (data.correct) {
                 if (data.isWordGuess) {
                     if (data.winner) {
@@ -342,10 +342,11 @@ class GameClient {
                             this.showNotification(`🏆 GAME WON BY ${data.winner.toUpperCase()}! 🏆`, 'success');
                         }, 1000);
                     } else {
-                        this.showNotification(`✅ "${data.guess}" is correct!`, 'success');
+                        this.showNotification(`✅ ${data.playerName} guessed "${data.guess}" correctly!`, 'success');
                     }
                 } else {
-                    this.showNotification(`✅ "${data.guess}" is in the word!`, 'success');
+                    // Show who got the correct letter to all players
+                    this.showNotification(`✅ ${data.playerName} found letter "${data.guess}" in the word!`, 'success');
                 }
                 
                 if (data.gameWon) {
@@ -359,7 +360,7 @@ class GameClient {
                     // Show who made the incorrect guess to all players
                     this.showNotification(`❌ ${data.playerName} guessed "${data.guess}" - not the word`, 'error');
                 } else {
-                    this.showNotification(`❌ "${data.guess}" is not in the word`, 'error');
+                    this.showNotification(`❌ ${data.playerName} guessed "${data.guess}" - not in the word`, 'error');
                 }
                 
                 if (data.gameOver) {
@@ -798,6 +799,19 @@ class GameClient {
         } else if (this.gameState.gameState === 'playing') {
             console.log('Showing game play area');
             this.showGamePlay();
+            
+            // Ensure word mask is updated for all players
+            if (this.wordDisplay && this.gameState.wordMask) {
+                this.wordDisplay.textContent = this.gameState.wordMask;
+                console.log('Updated word mask:', this.gameState.wordMask);
+            }
+            
+            // Update hints for all players
+            this.updateHints();
+            
+            // Update guessed letters for all players
+            this.updateGuessedLetters();
+            
         } else if (this.gameState.gameState === 'finished') {
             console.log('Showing game over area');
             this.showGameOver(this.gameState.winner === 'guessers', this.gameState.winnerName);
