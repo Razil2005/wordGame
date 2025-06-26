@@ -316,27 +316,35 @@ io.on('connection', (socket) => {
 
     // Store player info
     socket.on('setPlayerName', (playerName) => {
+        console.log('👤 setPlayerName event received:', playerName, 'from socket:', socket.id);
         players.set(socket.id, { name: playerName, roomId: null });
+        console.log('👤 Player stored. Total players:', players.size);
         socket.emit('playerSet', { playerId: socket.id, playerName });
     });
 
     // Create room
     socket.on('createRoom', () => {
+        console.log('🏠 createRoom event received from socket:', socket.id);
         const roomId = uuidv4().substr(0, 6).toUpperCase();
         const player = players.get(socket.id);
         
+        console.log('🏠 Player for room creation:', player ? player.name : 'null');
+        
         if (!player) {
+            console.log('🏠 Error: No player found for room creation');
             socket.emit('error', 'Please set your name first');
             return;
         }
 
         const room = new GameRoom(roomId, socket.id);
+        console.log('🏠 Room created with ID:', roomId, 'Host:', socket.id);
         room.addPlayer(socket.id, player.name);
         rooms.set(roomId, room);
         
         player.roomId = roomId;
         socket.join(roomId);
         
+        console.log('🏠 Room setup complete. Emitting roomCreated event');
         socket.emit('roomCreated', { roomId, gameState: room.getGameState() });
     });    // Join room
     socket.on('joinRoom', (roomId) => {
@@ -393,9 +401,10 @@ io.on('connection', (socket) => {
 
     // Start game
     socket.on('startGame', () => {
-        console.log('📦 startGame event received from:', socket.id);
+        console.log('📦 startGame event received from socket:', socket.id);
         const player = players.get(socket.id);
-        console.log('📦 Player found:', player ? player.name : 'null');
+        console.log('📦 Player found:', player ? `${player.name} (room: ${player.roomId})` : 'null');
+        console.log('📦 All players:', Array.from(players.entries()).map(([id, p]) => `${id}: ${p.name}`));
         
         if (!player || !player.roomId) {
             console.log('📦 Error: No player or room ID');
@@ -404,11 +413,11 @@ io.on('connection', (socket) => {
         }
         
         const room = rooms.get(player.roomId);
-        console.log('📦 Room found:', room ? room.id : 'null');
-        console.log('📦 Room host:', room ? room.hostId : 'null', 'Current socket:', socket.id);
+        console.log('📦 Room found:', room ? `${room.id} (host: ${room.hostId})` : 'null');
+        console.log('📦 All rooms:', Array.from(rooms.keys()));
         
         if (!room || room.hostId !== socket.id) {
-            console.log('📦 Error: Not host or room not found');
+            console.log('📦 Error: Not host or room not found. Room host:', room?.hostId, 'Current socket:', socket.id);
             socket.emit('error', 'Only host can start the game');
             return;
         }

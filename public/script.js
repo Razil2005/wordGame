@@ -581,6 +581,7 @@ class GameClient {
 
     startGame() {
         console.log('🚀 startGame called - isHost:', this.isHost, 'socket connected:', this.socket.connected);
+        console.log('🚀 Socket ID:', this.socket.id);
         console.log('🚀 Current gameState:', this.gameState);
         
         if (!this.isHost) {
@@ -595,10 +596,20 @@ class GameClient {
             return;
         }
         
-        console.log('🚀 Emitting startGame event...');
+        console.log('🚀 About to emit startGame event...');
+        
+        // Add a timeout to detect if the server responds
+        const timeout = setTimeout(() => {
+            console.error('🚀 No response from server after 5 seconds');
+            this.showNotification('Server not responding. Please try again.', 'error');
+        }, 5000);
+        
+        // Clear timeout when we get a response
+        const originalHandler = this.socket._callbacks?.$gameStarted || [];
+        
         this.socket.emit('startGame');
+        console.log('🚀 startGame event emitted successfully');
         this.showNotification('Starting turn-based game...', 'info');
-        console.log('🚀 startGame event emitted');
     }
 
     setWordAndHints() {
