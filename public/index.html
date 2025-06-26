@@ -68,7 +68,32 @@
                         <button id="startGameBtn" class="btn btn-primary" style="display: none;">Start Game</button>
                     </div>
 
+                    <div id="wordSettingArea" class="word-setting-area" style="display: none;">
+                        <h3>Your Turn to Set the Word!</h3>
+                        <p>Choose a word and write some hints for other players to guess.</p>
+                        
+                        <div class="word-input-group">
+                            <label for="wordInput">Enter your word:</label>
+                            <input type="text" id="wordInput" placeholder="Enter a word (letters only)" maxlength="20">
+                        </div>
+                        
+                        <div class="hints-input-group">
+                            <label>Enter hints (at least 2):</label>
+                            <input type="text" id="hint1" placeholder="Hint 1" maxlength="100">
+                            <input type="text" id="hint2" placeholder="Hint 2" maxlength="100">
+                            <input type="text" id="hint3" placeholder="Hint 3 (optional)" maxlength="100">
+                            <input type="text" id="hint4" placeholder="Hint 4 (optional)" maxlength="100">
+                        </div>
+                        
+                        <button id="setWordBtn" class="btn btn-primary">Set Word & Start Round</button>
+                    </div>
+
                     <div id="gamePlayArea" class="gameplay-area" style="display: none;">
+                        <!-- Current Turn Info -->
+                        <div class="turn-info">
+                            <p><strong>Round <span id="currentRound">1</span></strong></p>
+                            <p>Word set by: <strong id="wordSetterName">Player</strong></p>
+                        </div>
                         <!-- Word Display -->
                         <div class="word-display">
                             <h3 id="wordMask">_ _ _ _ _</h3>
@@ -98,6 +123,13 @@
                         <div class="game-over-content">
                             <h2 id="gameResult"></h2>
                             <p>The word was: <strong id="revealedWord"></strong></p>
+                            
+                            <div class="scores-display">
+                                <h4>Scores:</h4>
+                                <div id="scoresDisplay"></div>
+                            </div>
+                            
+                            <button id="nextRoundBtn" class="btn btn-primary" style="display: none;">Next Round</button>
                             <button id="newGameBtn" class="btn btn-primary" style="display: none;">New Game</button>
                             <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
                         </div>

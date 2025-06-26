@@ -49,8 +49,23 @@ class GameClient {
         
         // Game areas
         this.waitingArea = document.getElementById('waitingArea');
+        this.wordSettingArea = document.getElementById('wordSettingArea');
         this.gamePlayArea = document.getElementById('gamePlayArea');
         this.gameOverArea = document.getElementById('gameOverArea');
+        
+        // Word setting elements
+        this.wordInput = document.getElementById('wordInput');
+        this.hint1 = document.getElementById('hint1');
+        this.hint2 = document.getElementById('hint2');
+        this.hint3 = document.getElementById('hint3');
+        this.hint4 = document.getElementById('hint4');
+        this.setWordBtn = document.getElementById('setWordBtn');
+        
+        // Turn info elements
+        this.currentRoundDisplay = document.getElementById('currentRound');
+        this.wordSetterNameDisplay = document.getElementById('wordSetterName');
+        this.scoresDisplay = document.getElementById('scoresDisplay');
+        this.nextRoundBtn = document.getElementById('nextRoundBtn');
         
         // Gameplay elements
         this.wordDisplay = document.getElementById('wordMask');
@@ -147,6 +162,22 @@ class GameClient {
             this.startGameBtn.addEventListener('click', () => {
                 console.log('Start Game button clicked');
                 this.startGame();
+            });
+        }
+
+        // Set Word button
+        if (this.setWordBtn) {
+            this.setWordBtn.addEventListener('click', () => {
+                console.log('Set Word button clicked');
+                this.setWordAndHints();
+            });
+        }
+
+        // Next Round button
+        if (this.nextRoundBtn) {
+            this.nextRoundBtn.addEventListener('click', () => {
+                console.log('Next Round button clicked');
+                this.nextRound();
             });
         }
 
@@ -309,7 +340,29 @@ class GameClient {
             console.log('Game started:', data);
             this.gameState = data;
             this.updateGameDisplay();
-            this.showNotification('Game started!', 'success');
+            
+            if (data.isWordSettingPhase) {
+                this.showNotification(`Turn-based game started! Round ${data.currentRound}`, 'success');
+            } else {
+                this.showNotification('Game started!', 'success');
+            }
+        });
+
+        this.socket.on('wordSet', (data) => {
+            console.log('Word set event:', data);
+            this.gameState = data.gameState;
+            this.updateGameDisplay();
+            this.showNotification(`${data.wordSetterName} has set the word! Start guessing!`, 'success');
+        });
+
+        this.socket.on('roundComplete', (data) => {
+            console.log('Round complete:', data);
+            this.gameState = data.gameState;
+            this.showNotification(data.message, 'success');
+            
+            setTimeout(() => {
+                this.showGameOver(true, data.winnerName);
+            }, 2000);
         });
 
         this.socket.on('gameUpdate', (data) => {
@@ -526,7 +579,54 @@ class GameClient {
         }
         
         this.socket.emit('startGame');
-        this.showNotification('Starting game...', 'info');
+        this.showNotification('Starting turn-based game...', 'info');
+    }
+
+    setWordAndHints() {
+        console.log('Setting word and hints...');
+        
+        if (!this.socket.connected) {
+            this.showNotification('Not connected to server', 'error');
+            return;
+        }
+        
+        const word = this.wordInput?.value?.trim()?.toUpperCase();
+        if (!word || word.length < 3) {
+            this.showNotification('Please enter a word with at least 3 letters', 'error');
+            return;
+        }
+        
+        // Validate word contains only letters
+        if (!/^[A-Z]+$/.test(word)) {
+            this.showNotification('Word must contain only letters', 'error');
+            return;
+        }
+        
+        const hints = [
+            this.hint1?.value?.trim(),
+            this.hint2?.value?.trim(),
+            this.hint3?.value?.trim(),
+            this.hint4?.value?.trim()
+        ].filter(hint => hint && hint.length > 0);
+        
+        if (hints.length < 2) {
+            this.showNotification('Please provide at least 2 hints', 'error');
+            return;
+        }
+        
+        console.log('Sending word and hints:', { word, hints });
+        this.socket.emit('setWordAndHints', { word, hints });
+        this.showNotification('Setting word...', 'info');
+    }
+
+    nextRound() {
+        if (!this.isHost) {
+            this.showNotification('Only the host can start the next round', 'error');
+            return;
+        }
+        
+        this.socket.emit('nextRound');
+        this.showNotification('Starting next round...', 'info');
     }
 
     submitGuess() {
@@ -796,6 +896,9 @@ class GameClient {
         if (this.gameState.gameState === 'waiting') {
             console.log('Showing waiting area');
             this.showWaitingArea();
+        } else if (this.gameState.gameState === 'word-setting') {
+            console.log('Showing word setting area');
+            this.showWordSettingArea();
         } else if (this.gameState.gameState === 'playing') {
             console.log('Showing game play area');
             this.showGamePlay();
@@ -804,6 +907,14 @@ class GameClient {
             if (this.wordDisplay && this.gameState.wordMask) {
                 this.wordDisplay.textContent = this.gameState.wordMask;
                 console.log('Updated word mask:', this.gameState.wordMask);
+            }
+            
+            // Update turn info
+            if (this.currentRoundDisplay) {
+                this.currentRoundDisplay.textContent = this.gameState.currentRound || 1;
+            }
+            if (this.wordSetterNameDisplay) {
+                this.wordSetterNameDisplay.textContent = this.gameState.currentWordSetterName || 'Unknown';
             }
             
             // Update hints for all players

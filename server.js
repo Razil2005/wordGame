@@ -65,12 +65,17 @@ class GameRoom {
         this.currentHints = [];
         this.guessedLetters = new Set();
         this.correctLetters = new Set();
-        this.gameState = 'waiting'; // waiting, playing, finished
-        this.currentGuesser = null;
-        this.maxHealth = 6;        this.currentHealth = this.maxHealth;
+        this.gameState = 'waiting'; // waiting, word-setting, playing, finished
+        this.currentWordSetter = null; // Player who sets the current word
+        this.currentRound = 1;
+        this.maxHealth = 6;
+        this.currentHealth = this.maxHealth;
         this.wordMask = '';
         this.winner = null;
         this.winnerName = null;
+        this.playerOrder = []; // Order of players for turn rotation
+        this.currentTurnIndex = 0;
+        this.roundHistory = []; // Track who has set words
     }
 
     addPlayer(playerId, playerName) {
@@ -81,6 +86,10 @@ class GameRoom {
             score: 0,
             isHost: playerId === this.hostId
         });
+        
+        // Update player order for turn rotation
+        this.updatePlayerOrder();
+        
         console.log(`Player ${playerName} (${playerId}) added/updated in room ${this.id}. Total players: ${this.players.size}`);
     }
 
@@ -92,24 +101,84 @@ class GameRoom {
             this.hostId = newHost;
             this.players.get(newHost).isHost = true;
         }
-    }    startGame() {
-        if (this.players.size < 1) return false; // Allow single player for testing
         
-        // Select random word
-        const randomIndex = Math.floor(Math.random() * wordList.length);
-        const selectedWord = wordList[randomIndex];
+        // Update player order
+        this.updatePlayerOrder();
         
-        this.currentWord = selectedWord.word.toUpperCase();
-        this.currentHints = selectedWord.hints;
+        // If current word setter left, reset the round
+        if (playerId === this.currentWordSetter) {
+            this.resetRound();
+        }
+    }
+
+    updatePlayerOrder() {
+        this.playerOrder = Array.from(this.players.keys());
+        // Ensure current turn index is valid
+        if (this.currentTurnIndex >= this.playerOrder.length) {
+            this.currentTurnIndex = 0;
+        }
+    }
+
+    getCurrentWordSetter() {
+        if (this.playerOrder.length === 0) return null;
+        return this.playerOrder[this.currentTurnIndex];
+    }
+
+    nextTurn() {
+        this.currentTurnIndex = (this.currentTurnIndex + 1) % this.playerOrder.length;
+        this.currentRound++;
+        this.resetRound();
+    }
+
+    resetRound() {
+        this.currentWord = null;
+        this.currentHints = [];
         this.guessedLetters.clear();
         this.correctLetters.clear();
-        this.gameState = 'playing';
         this.currentHealth = this.maxHealth;
-        this.updateWordMask();
+        this.wordMask = '';
+        this.winner = null;
+        this.winnerName = null;
+        this.gameState = 'word-setting';
+        this.currentWordSetter = this.getCurrentWordSetter();
+    }
+    
+    startGame() {
+        if (this.players.size < 2) return false; // Need at least 2 players for turn-based
         
-        console.log(`🎮 Game started! Word: "${this.currentWord}", Hints:`, this.currentHints);
+        // Initialize turn-based system
+        this.updatePlayerOrder();
+        this.currentTurnIndex = 0;
+        this.currentRound = 1;
+        this.resetRound();
+        
+        console.log(`🎮 Turn-based game started! Player order:`, this.playerOrder.map(id => this.players.get(id).name));
+        console.log(`Round ${this.currentRound}: ${this.players.get(this.currentWordSetter).name} will set the word`);
         
         return true;
+    }
+
+    setWordAndHints(word, hints, setterId) {
+        if (setterId !== this.currentWordSetter) {
+            return { success: false, message: 'Not your turn to set the word' };
+        }
+        
+        if (this.gameState !== 'word-setting') {
+            return { success: false, message: 'Word has already been set for this round' };
+        }
+        
+        if (!word || !hints || hints.length < 1) {
+            return { success: false, message: 'Word and at least one hint required' };
+        }
+        
+        this.currentWord = word.toUpperCase().trim();
+        this.currentHints = hints;
+        this.gameState = 'playing';
+        this.updateWordMask();
+        
+        console.log(`📝 Word set by ${this.players.get(setterId).name}: "${this.currentWord}" with ${hints.length} hints`);
+        
+        return { success: true };
     }
 
     updateWordMask() {
@@ -120,8 +189,15 @@ class GameRoom {
                 return this.correctLetters.has(letter) ? letter : '_';
             })
             .join(' ');
-    }    guessLetter(letter) {
+    }
+    
+    guessLetter(letter, playerId) {
         letter = letter.toUpperCase();
+        
+        // Word setter cannot guess their own word
+        if (playerId === this.currentWordSetter) {
+            return { success: false, message: 'You cannot guess your own word!' };
+        }
         
         if (this.guessedLetters.has(letter)) {
             return { success: false, message: 'Letter already guessed' };
@@ -141,7 +217,21 @@ class GameRoom {
             if (isComplete) {
                 this.gameState = 'finished';
                 this.winner = 'guessers';
-                return { success: true, correct: true, gameWon: true };
+                this.winnerName = this.players.get(playerId)?.name || 'Unknown Player';
+                
+                // Give points
+                const guesser = this.players.get(playerId);
+                const wordSetter = this.players.get(this.currentWordSetter);
+                if (guesser) guesser.score += 10;
+                if (wordSetter) wordSetter.score += 5;
+                
+                return { 
+                    success: true, 
+                    correct: true, 
+                    gameWon: true, 
+                    winner: this.winnerName,
+                    roundComplete: true
+                };
             }
             
             return { success: true, correct: true, gameWon: false };
@@ -160,18 +250,39 @@ class GameRoom {
         console.log(`Character codes - actual:`, Array.from(this.currentWord).map(c => c.charCodeAt(0)));
         console.log(`Word comparison: "${word}" === "${this.currentWord}" = ${word === this.currentWord}`);
         
+        // Word setter cannot guess their own word
+        if (playerId === this.currentWordSetter) {
+            return { success: false, message: 'You cannot guess your own word!' };
+        }
+        
         if (word === this.currentWord) {
             this.gameState = 'finished';
             this.winner = 'guessers';
             this.winnerName = this.players.get(playerId)?.name || 'Unknown Player';
+            
+            // Give points to the guesser and word setter
+            const guesser = this.players.get(playerId);
+            const wordSetter = this.players.get(this.currentWordSetter);
+            if (guesser) guesser.score += 10; // Points for guessing correctly
+            if (wordSetter) wordSetter.score += 5; // Points for setting a good word
+            
             console.log(`✅ Correct guess! Winner: ${this.winnerName}`);
-            return { success: true, correct: true, gameWon: true, isWordGuess: true, winner: this.winnerName };
+            return { 
+                success: true, 
+                correct: true, 
+                gameWon: true, 
+                isWordGuess: true, 
+                winner: this.winnerName,
+                roundComplete: true
+            };
         } else {
             // Incorrect word guess - just mark as incorrect but don't end game or reduce health
             console.log(`❌ Incorrect word guess: "${word}" - game continues`);
             return { success: true, correct: false, gameOver: false, isWordGuess: true };
         }
-    }    getGameState() {
+    }
+    
+    getGameState() {
         return {
             id: this.id,
             players: Array.from(this.players.values()),
@@ -183,7 +294,12 @@ class GameRoom {
             maxHealth: this.maxHealth,
             winner: this.winner,
             winnerName: this.winnerName,
-            currentWord: this.gameState === 'finished' ? this.currentWord : null
+            currentWord: this.gameState === 'finished' ? this.currentWord : null,
+            currentWordSetter: this.currentWordSetter,
+            currentWordSetterName: this.currentWordSetter ? this.players.get(this.currentWordSetter)?.name : null,
+            currentRound: this.currentRound,
+            playerOrder: this.playerOrder,
+            isWordSettingPhase: this.gameState === 'word-setting'
         };
     }
 }
@@ -279,11 +395,48 @@ io.on('connection', (socket) => {
             socket.emit('error', 'Only host can start the game');
             return;
         }
-          if (room.startGame()) {
+        
+        if (room.startGame()) {
             io.to(player.roomId).emit('gameStarted', room.getGameState());
         } else {
-            socket.emit('error', 'Need at least 1 player to start');
+            socket.emit('error', 'Need at least 2 players to start turn-based game');
         }
+    });
+
+    // Set word and hints for current round
+    socket.on('setWordAndHints', (data) => {
+        const player = players.get(socket.id);
+        if (!player || !player.roomId) return;
+        
+        const room = rooms.get(player.roomId);
+        if (!room) return;
+        
+        const result = room.setWordAndHints(data.word, data.hints, socket.id);
+        
+        if (result.success) {
+            // Notify all players that word has been set and round can begin
+            io.to(player.roomId).emit('wordSet', {
+                gameState: room.getGameState(),
+                wordSetterName: player.name
+            });
+        } else {
+            socket.emit('error', result.message);
+        }
+    });
+
+    // Next round
+    socket.on('nextRound', () => {
+        const player = players.get(socket.id);
+        if (!player || !player.roomId) return;
+        
+        const room = rooms.get(player.roomId);
+        if (!room || room.hostId !== socket.id) {
+            socket.emit('error', 'Only host can start next round');
+            return;
+        }
+        
+        room.nextTurn();
+        io.to(player.roomId).emit('gameStarted', room.getGameState());
     });    // Guess letter or word
     socket.on('guessLetter', (guess) => {
         const player = players.get(socket.id);
@@ -292,7 +445,6 @@ io.on('connection', (socket) => {
         const room = rooms.get(player.roomId);
         if (!room || room.gameState !== 'playing') return;
         
-        // Allow all players (including host) to guess in competitive mode
         guess = guess.toUpperCase().trim();
         console.log(`Guess received from ${player.name} (${socket.id}): "${guess}"`);
         
@@ -300,7 +452,7 @@ io.on('connection', (socket) => {
         if (guess.length === 1) {
             // Single letter guess
             console.log('Processing single letter guess');
-            result = room.guessLetter(guess);
+            result = room.guessLetter(guess, socket.id);
         } else {
             // Word guess - pass player ID to track winner
             console.log('Processing word guess');
@@ -318,23 +470,22 @@ io.on('connection', (socket) => {
                 gameOver: result.gameOver,
                 isWordGuess: result.isWordGuess || false,
                 winner: result.winner,
-                playerName: player.name
+                playerName: player.name,
+                roundComplete: result.roundComplete || false
             };
             
             console.log('Sending letterGuessed event to room:', eventData);
             // Send to ALL players in the room (including the guesser)
             io.to(player.roomId).emit('letterGuessed', eventData);
             
-            // Also send a general game update to ensure all players are synchronized
-            io.to(player.roomId).emit('gameUpdate', room.getGameState());
-            
-            // If someone won, send a special winner announcement to all players
-            if (result.gameWon && result.winner) {
-                console.log(`🏆 Broadcasting winner announcement: ${result.winner}`);
-                io.to(player.roomId).emit('gameWinner', {
+            // If round is complete, send special event
+            if (result.roundComplete) {
+                console.log(`🏆 Round complete! Winner: ${result.winner}`);
+                io.to(player.roomId).emit('roundComplete', {
                     winnerName: result.winner,
                     winningWord: guess,
-                    message: `🏆 ${result.winner} won by guessing "${guess}"! 🏆`
+                    gameState: room.getGameState(),
+                    message: `🏆 ${result.winner} won Round ${room.currentRound}! 🏆`
                 });
             }
         } else {
