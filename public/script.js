@@ -43,8 +43,14 @@ class GameClient {
         this.roomCodeDisplay = document.getElementById('roomCode');
         this.copyRoomCodeBtn = document.getElementById('copyRoomCodeBtn');
         this.playersDisplay = document.getElementById('playersList');
+        this.playersList = document.getElementById('playersList'); // Alternative reference
         this.heartsDisplay = document.getElementById('heartsDisplay');
         this.startGameBtn = document.getElementById('startGameBtn');
+        
+        // Game areas
+        this.waitingArea = document.getElementById('waitingArea');
+        this.gamePlayArea = document.getElementById('gamePlayArea');
+        this.gameOverArea = document.getElementById('gameOverArea');
         
         // Gameplay elements
         this.wordDisplay = document.getElementById('wordMask');
@@ -242,10 +248,12 @@ class GameClient {
             console.log('Socket error received:', message);
             this.showNotification('Error: ' + message, 'error');
         });        this.socket.on('roomCreated', (data) => {
-            console.log('Room created:', data);
+            console.log('🎯 Room created:', data);
             this.roomId = data.roomId;
             this.isHost = true;
             this.gameState = data.gameState; // Store the game state
+            console.log('🎯 Game state received:', this.gameState);
+            console.log('🎯 Players in state:', this.gameState?.players);
             this.showGameRoomScreen();
             this.updateGameDisplay(); // Update the display to show players and start button
             this.showNotification('Room created successfully!', 'success');
@@ -458,6 +466,7 @@ class GameClient {
         
         // Force update the game display to show current state
         setTimeout(() => {
+            console.log('Calling updateGameDisplay from showGameRoomScreen');
             this.updateGameDisplay();
         }, 100);
     }
@@ -745,6 +754,131 @@ class GameClient {
                 this.notification.classList.remove('show');
             }
         }, 3000);
+    }
+    
+    updateGameDisplay() {
+        console.log('updateGameDisplay called, gameState:', this.gameState);
+        if (!this.gameState) {
+            console.log('No game state available');
+            return;
+        }
+
+        // Update players list
+        this.updatePlayersList();
+
+        // Update health display
+        this.updateHealthDisplay();
+
+        // Update game areas based on game state
+        if (this.gameState.gameState === 'waiting') {
+            console.log('Showing waiting area');
+            this.showWaitingArea();
+        } else if (this.gameState.gameState === 'playing') {
+            console.log('Showing game play area');
+            this.showGamePlay();
+        } else if (this.gameState.gameState === 'finished') {
+            console.log('Showing game over area');
+            this.showGameOver(this.gameState.winner === 'guessers', this.gameState.winnerName);
+        }
+    }
+
+    updatePlayersList() {
+        console.log('updatePlayersList called');
+        if (!this.playersList) {
+            console.error('playersList element not found!');
+            return;
+        }
+        
+        if (!this.gameState || !this.gameState.players) {
+            console.log('No players in game state');
+            return;
+        }
+        
+        console.log('Updating players list with:', this.gameState.players);
+        this.playersList.innerHTML = '';
+        
+        this.gameState.players.forEach(player => {
+            const playerElement = document.createElement('div');
+            playerElement.className = `player-item ${player.isHost ? 'host' : ''}`;
+            
+            playerElement.innerHTML = `
+                <span class="player-name">${player.name}</span>
+                ${player.isHost ? '<span class="player-badge">HOST</span>' : '<span class="player-badge">PLAYER</span>'}
+            `;
+            
+            this.playersList.appendChild(playerElement);
+        });
+        
+        console.log('Players list updated, element count:', this.playersList.children.length);
+    }
+
+    updateHealthDisplay() {
+        if (!this.heartsDisplay || !this.gameState) return;
+        
+        const hearts = [];
+        for (let i = 0; i < this.gameState.maxHealth; i++) {
+            if (i < this.gameState.currentHealth) {
+                hearts.push('<span class="heart">❤️</span>');
+            } else {
+                hearts.push('<span class="heart empty">🤍</span>');
+            }
+        }
+        this.heartsDisplay.innerHTML = hearts.join('');
+    }
+
+    showWaitingArea() {
+        console.log('showWaitingArea called, isHost:', this.isHost, 'player count:', this.gameState?.players?.length);
+        
+        if (this.waitingArea) this.waitingArea.style.display = 'block';
+        if (this.gamePlayArea) this.gamePlayArea.style.display = 'none';
+        if (this.gameOverArea) this.gameOverArea.style.display = 'none';
+        
+        // Show start button for host if there are players
+        if (this.startGameBtn) {
+            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 1) {
+                console.log('Showing start game button for host');
+                this.startGameBtn.style.display = 'block';
+            } else {
+                console.log('Hiding start game button - not host or no players');
+                this.startGameBtn.style.display = 'none';
+            }
+        }
+    }
+
+    showGamePlay() {
+        if (this.waitingArea) this.waitingArea.style.display = 'none';
+        if (this.gamePlayArea) this.gamePlayArea.style.display = 'block';
+        if (this.gameOverArea) this.gameOverArea.style.display = 'none';
+        
+        // Update word mask
+        if (this.wordDisplay && this.gameState) {
+            this.wordDisplay.textContent = this.gameState.wordMask;
+        }
+        
+        // Update hints
+        this.updateHints();
+        
+        // Update guessed letters
+        this.updateGuessedLetters();
+        
+        // Show letter input for all players
+        if (this.letterInputSection) {
+            this.letterInputSection.style.display = 'block';
+        }
+    }
+
+    updateHints() {
+        if (!this.hintsList || !this.gameState) return;
+        
+        this.hintsList.innerHTML = '';
+        
+        if (this.gameState.hints) {
+            this.gameState.hints.forEach(hint => {
+                const li = document.createElement('li');
+                li.textContent = hint;
+                this.hintsList.appendChild(li);
+            });
+        }
     }
 }
 
