@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Server Connection Test</h1>
+    
+    <div id="status" class="status info">
+        Testing connection to server...
+    </div>
+    
+    <button onclick="testConnection()">🔌 Test Connection</button>
+    <button onclick="createTestRoom()">🏠 Test Create Room</button>
+    <button onclick="testJoinRoom()">🚪 Test Join Room</button>
+    
+    <div id="results"></div>
+    
+    <h2>Instructions:</h2>
+    <ol>
+        <li><strong>Start the server first:</strong>
+            <ul>
+                <li>Open Command Prompt</li>
+                <li>Navigate to: <code>cd "c:\Users\Razil\Desktop\newgame"</code></li>
+                <li>Run: <code>node server.js</code></li>
+                <li>You should see: "Server running on port 3001"</li>
+            </ul>
+        </li>
+        <li>Refresh this page and click "Test Connection"</li>
+        <li>If connection works, try the main game at <a href="/">http://localhost:3001</a></li>
+    </ol>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+        
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'status ' + type;
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            results.appendChild(div);
+        }
+        
+        function testConnection() {
+            updateStatus('Testing connection...', 'info');
+            
+            try {
+                socket = io({
+                    reconnection: false,
+                    timeout: 5000
+                });
+                
+                socket.on('connect', () => {
+                    updateStatus('✅ Connected to server successfully!', 'success');
+                    addResult('Connection successful', 'success');
+                });
+                
+                socket.on('connect_error', (error) => {
+                    updateStatus('❌ Cannot connect to server. Please start the server first.', 'error');
+                    addResult('Connection failed: ' + error.message, 'error');
+                });
+                
+                socket.on('disconnect', () => {
+                    addResult('Disconnected from server', 'info');
+                });
+                
+            } catch (error) {
+                updateStatus('❌ Error: ' + error.message, 'error');
+                addResult('Connection error: ' + error.message, 'error');
+            }
+        }
+        
+        function createTestRoom() {
+            if (!socket || !socket.connected) {
+                addResult('Not connected to server', 'error');
+                return;
+            }
+            
+            socket.emit('setPlayerName', 'TestUser');
+            socket.emit('createRoom');
+            
+            socket.on('roomCreated', (data) => {
+                addResult('✅ Room created: ' + data.roomId, 'success');
+            });
+            
+            socket.on('error', (message) => {
+                addResult('❌ Error creating room: ' + message, 'error');
+            });
+        }
+        
+        function testJoinRoom() {
+            const roomCode = prompt('Enter room code to test:');
+            if (!roomCode) return;
+            
+            if (!socket || !socket.connected) {
+                addResult('Not connected to server', 'error');
+                return;
+            }
+            
+            socket.emit('setPlayerName', 'TestGuest');
+            socket.emit('joinRoom', roomCode.toUpperCase());
+            
+            socket.on('roomJoined', (data) => {
+                addResult('✅ Successfully joined room: ' + data.roomId, 'success');
+            });
+            
+            socket.on('error', (message) => {
+                addResult('❌ Error joining room: ' + message, 'error');
+            });
+        }
+        
+        // Auto-test connection on page load
+        window.onload = testConnection;
+    </script>
+</body>
+</html>

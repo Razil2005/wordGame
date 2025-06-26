@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Join Test</title>
+</head>
+<body>
+    <h1>Test Joining a Room</h1>
+    <div>
+        <input type="text" id="testName" value="TestUser" placeholder="Name">
+        <input type="text" id="testRoom" value="" placeholder="Room Code">
+        <button onclick="testJoin()">Test Join</button>
+    </div>
+    <div id="status"></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const status = document.getElementById('status');
+        
+        function log(msg) {
+            status.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + msg + '</div>';
+            console.log(msg);
+        }
+        
+        socket.on('connect', () => {
+            log('Connected: ' + socket.id);
+        });
+        
+        socket.on('playerSet', (data) => {
+            log('Player set: ' + JSON.stringify(data));
+        });
+        
+        socket.on('roomJoined', (data) => {
+            log('ROOM JOINED! ' + JSON.stringify(data));
+        });
+        
+        socket.on('testEvent', (data) => {
+            log('TEST EVENT: ' + JSON.stringify(data));
+        });
+        
+        socket.on('error', (msg) => {
+            log('ERROR: ' + msg);
+        });
+        
+        function testJoin() {
+            const name = document.getElementById('testName').value;
+            const room = document.getElementById('testRoom').value;
+            
+            log('Setting player name to: ' + name);
+            socket.emit('setPlayerName', name);
+            
+            setTimeout(() => {
+                log('Joining room: ' + room);
+                socket.emit('joinRoom', room);
+            }, 500);
+        }
+    </script>
+</body>
+</html>

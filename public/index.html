@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess the Word - Multiplayer</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="screen active">
+            <div class="welcome-card">
+                <h1>🎯 Guess the Word</h1>
+                <p>Multiplayer Word Guessing Game</p>
+                
+                <div class="input-group">
+                    <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15">
+                </div>                <div class="button-group">
+                    <button id="createRoomBtn" class="btn btn-primary">Create Room</button>
+                    <button id="joinRoomBtn" class="btn btn-secondary">Join Room</button>
+                    <button id="testConnectionBtn" class="btn btn-small" style="background: #ff6b6b; color: white;">🔌 Test Connection</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Join Room Screen -->
+        <div id="joinRoomScreen" class="screen">
+            <div class="join-card">
+                <h2>Join a Room</h2>
+                <div class="input-group">
+                    <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="6">
+                </div>                <div class="button-group">
+                    <button id="joinGameBtn" class="btn btn-primary">Join Game</button>
+                    <button id="backToWelcomeBtn" class="btn btn-secondary">Back</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Room Screen -->
+        <div id="gameRoomScreen" class="screen">
+            <div class="game-header">
+                <div class="room-info">
+                    <h2>Room: <span id="roomCode"></span></h2>
+                    <button id="copyRoomCodeBtn" class="btn btn-small">📋 Copy</button>
+                </div>
+                <div class="health-bar">
+                    <span>Health: </span>
+                    <div class="hearts">
+                        <span id="heartsDisplay"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-content">
+                <!-- Players List -->
+                <div class="players-section">
+                    <h3>Players</h3>
+                    <div id="playersList" class="players-list"></div>
+                </div>
+
+                <!-- Game Area -->
+                <div class="game-area">
+                    <div id="waitingArea" class="waiting-area">
+                        <h3>Waiting for players...</h3>
+                        <p>Share the room code with your friends!</p>
+                        <button id="startGameBtn" class="btn btn-primary" style="display: none;">Start Game</button>
+                    </div>
+
+                    <div id="gamePlayArea" class="gameplay-area" style="display: none;">
+                        <!-- Word Display -->
+                        <div class="word-display">
+                            <h3 id="wordMask">_ _ _ _ _</h3>
+                        </div>
+
+                        <!-- Hints -->
+                        <div class="hints-section">
+                            <h4>💡 Hints:</h4>
+                            <ul id="hintsList"></ul>
+                        </div>                        <!-- Letter/Word Input -->
+                        <div id="letterInputSection" class="letter-input-section">                            <div class="input-group">
+                                <input type="text" id="letterInput" placeholder="Guess a letter or the full word" maxlength="15">
+                                <button id="guessBtn" class="btn btn-primary">Guess</button>
+                            </div>
+                            <p class="input-hint">💡 First player to guess the word wins! Enter a letter or the full word.</p>
+                        </div>
+
+                        <!-- Guessed Letters -->
+                        <div class="guessed-letters">
+                            <h4>Guessed Letters:</h4>
+                            <div id="guessedLettersDisplay" class="letters-grid"></div>
+                        </div>
+                    </div>
+
+                    <!-- Game Over Area -->
+                    <div id="gameOverArea" class="game-over-area" style="display: none;">
+                        <div class="game-over-content">
+                            <h2 id="gameResult"></h2>
+                            <p>The word was: <strong id="revealedWord"></strong></p>
+                            <button id="newGameBtn" class="btn btn-primary" style="display: none;">New Game</button>
+                            <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    <!-- Notification System -->
+    <div id="notification" class="notification"></div>
+    
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js?v=3"></script>
+    <script src="script.js?v=3"></script>
+    <script>
+        // Wait for DOM to be completely ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeGame);
+        } else {
+            initializeGame();
+        }        function initializeGame() {
+            console.log('Initializing game...');
+            window.game = new GameClient();
+            
+            // Test connection function
+            window.testConnection = function() {
+                console.log('Testing connection...');
+                if (window.game && window.game.socket) {
+                    console.log('Socket connected:', window.game.socket.connected);
+                    console.log('Socket ID:', window.game.socket.id);
+                    if (window.game.socket.connected) {
+                        window.game.showNotification('Connection is working!', 'success');
+                    } else {
+                        window.game.showNotification('Connection failed. Please check if server is running.', 'error');
+                    }
+                } else {
+                    console.log('Game client not initialized');
+                }
+            };
+        }
+    </script>
+</body>
+</html>
