@@ -74,12 +74,14 @@ class GameRoom {
     }
 
     addPlayer(playerId, playerName) {
+        // Always set/update the player (this will replace if already exists)
         this.players.set(playerId, {
             id: playerId,
             name: playerName,
             score: 0,
             isHost: playerId === this.hostId
         });
+        console.log(`Player ${playerName} (${playerId}) added/updated in room ${this.id}. Total players: ${this.players.size}`);
     }
 
     removePlayer(playerId) {
@@ -252,14 +254,6 @@ io.on('connection', (socket) => {
         };
         
         socket.emit('roomJoined', roomJoinedData);
-        
-        // Send again after a short delay to ensure it gets through
-        setTimeout(() => {
-            socket.emit('roomJoined', roomJoinedData);
-        }, 100);
-        
-        // Also emit a simple test event
-        socket.emit('testEvent', { message: 'Test event received' });
         
         console.log('Sending playerJoined to other players in room');
         // Notify all OTHER players in the room (excluding the joining player)

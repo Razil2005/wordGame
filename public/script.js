@@ -54,6 +54,10 @@ class GameClient {
         this.guessedLettersDisplay = document.getElementById('guessedLettersDisplay');
         this.letterInputSection = document.getElementById('letterInputSection');
         
+        // Game over elements
+        this.newGameBtn = document.getElementById('newGameBtn');
+        this.leaveRoomBtn = document.getElementById('leaveRoomBtn');
+        
         // Legacy elements (for compatibility)
         this.guessInput = document.getElementById('letterInput'); // Use letterInput as guessInput
         this.submitGuessBtn = document.getElementById('guessBtn'); // Use guessBtn as submitGuessBtn
@@ -186,6 +190,22 @@ class GameClient {
             });
         }
 
+        // New Game button
+        if (this.newGameBtn) {
+            this.newGameBtn.addEventListener('click', () => {
+                console.log('New Game button clicked');
+                this.startNewGame();
+            });
+        }
+
+        // Leave Room button
+        if (this.leaveRoomBtn) {
+            this.leaveRoomBtn.addEventListener('click', () => {
+                console.log('Leave Room button clicked');
+                this.leaveRoom();
+            });
+        }
+
         console.log('All events bound successfully');
     }
 
@@ -249,9 +269,12 @@ class GameClient {
         // Handle when a new player joins the room
         this.socket.on('playerJoined', (gameState) => {
             console.log('Player joined:', gameState);
-            this.gameState = gameState;
-            this.updateGameDisplay();
-            this.showNotification('A player joined the room', 'info');
+            // Only update if we're not the joining player and are already in the room
+            if (this.currentScreen === 'gameRoom') {
+                this.gameState = gameState;
+                this.updateGameDisplay();
+                this.showNotification('A player joined the room', 'info');
+            }
         });
 
         // Handle when a player leaves the room
@@ -647,6 +670,7 @@ class GameClient {
             return;
         }
         
+        // Clear the display completely
         this.playersDisplay.innerHTML = '';
         
         if (!this.gameState || !this.gameState.players) {
@@ -656,9 +680,17 @@ class GameClient {
         
         console.log('Updating players list with:', this.gameState.players);
         
+        // Create a Set to track unique players and avoid duplicates
+        const uniquePlayers = new Map();
         this.gameState.players.forEach(player => {
+            uniquePlayers.set(player.id, player);
+        });
+        
+        // Add each unique player to the display
+        uniquePlayers.forEach(player => {
             const playerElement = document.createElement('div');
             playerElement.className = `player-item ${player.isHost ? 'host' : ''}`;
+            playerElement.setAttribute('data-player-id', player.id); // Add for debugging
             
             playerElement.innerHTML = `
                 <span class="player-name">${player.name}</span>
@@ -667,6 +699,8 @@ class GameClient {
             
             this.playersDisplay.appendChild(playerElement);
         });
+        
+        console.log(`Added ${uniquePlayers.size} unique players to display`);
     }
 
     updateHealthDisplay() {
