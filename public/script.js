@@ -161,8 +161,15 @@ class GameClient {
         if (this.startGameBtn) {
             this.startGameBtn.addEventListener('click', () => {
                 console.log('Start Game button clicked');
-                this.startGame();
+                try {
+                    this.startGame();
+                } catch (error) {
+                    console.error('Error in startGame:', error);
+                    this.showNotification('Error starting game: ' + error.message, 'error');
+                }
             });
+        } else {
+            console.error('Start Game button not found in DOM');
         }
 
         // Set Word button
@@ -276,7 +283,7 @@ class GameClient {
         });
 
         this.socket.on('error', (message) => {
-            console.log('Socket error received:', message);
+            console.error('🚨 Socket error received:', message);
             this.showNotification('Error: ' + message, 'error');
         });        this.socket.on('roomCreated', (data) => {
             console.log('🎯 Room created:', data);
@@ -337,7 +344,7 @@ class GameClient {
         });
 
         this.socket.on('gameStarted', (data) => {
-            console.log('Game started:', data);
+            console.log('🎮 gameStarted event received:', data);
             this.gameState = data;
             this.updateGameDisplay();
             
@@ -573,21 +580,25 @@ class GameClient {
     }
 
     startGame() {
-        console.log('startGame called - isHost:', this.isHost, 'socket connected:', this.socket.connected);
+        console.log('🚀 startGame called - isHost:', this.isHost, 'socket connected:', this.socket.connected);
+        console.log('🚀 Current gameState:', this.gameState);
         
         if (!this.isHost) {
+            console.log('🚀 Error: Not host');
             this.showNotification('Only the host can start the game', 'error');
             return;
         }
         
         if (!this.socket.connected) {
+            console.log('🚀 Error: Socket not connected');
             this.showNotification('Not connected to server', 'error');
             return;
         }
         
-        console.log('Emitting startGame event...');
+        console.log('🚀 Emitting startGame event...');
         this.socket.emit('startGame');
         this.showNotification('Starting turn-based game...', 'info');
+        console.log('🚀 startGame event emitted');
     }
 
     setWordAndHints() {
@@ -954,11 +965,16 @@ class GameClient {
         // Clear the list completely to avoid duplicates
         this.playersList.innerHTML = '';
         
-        // Create a unique set of players based on ID to avoid duplicates
+        // Create a unique set of players based on NAME to avoid duplicates from multiple connections
         const uniquePlayers = new Map();
         this.gameState.players.forEach(player => {
             console.log('Processing player:', player.name, 'ID:', player.id);
-            uniquePlayers.set(player.id, player);
+            // Use player name as key to prevent duplicate names from showing
+            // Keep the host version if one exists
+            const existingPlayer = uniquePlayers.get(player.name);
+            if (!existingPlayer || player.isHost) {
+                uniquePlayers.set(player.name, player);
+            }
         });
         
         console.log('Unique players after deduplication:', uniquePlayers.size);
