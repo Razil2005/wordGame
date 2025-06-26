@@ -107,6 +107,8 @@ class GameRoom {
         this.currentHealth = this.maxHealth;
         this.updateWordMask();
         
+        console.log(`🎮 Game started! Word: "${this.currentWord}", Hints:`, this.currentHints);
+        
         return true;
     }
 
@@ -145,35 +147,28 @@ class GameRoom {
             return { success: true, correct: true, gameWon: false };
         } else {
             this.currentHealth--;
+            console.log(`Incorrect letter. Health: ${this.currentHealth}/${this.maxHealth}`);
             
-            if (this.currentHealth <= 0) {
-                this.gameState = 'finished';
-                this.winner = 'host';
-                return { success: true, correct: false, gameOver: true };
-            }
-            
+            // Don't end game when health reaches 0 - keep playing until someone gets the word
             return { success: true, correct: false, gameOver: false };
         }
     }    guessWord(word, playerId) {
         word = word.toUpperCase().trim();
         console.log(`Player ${playerId} guessing word: "${word}" vs current word: "${this.currentWord}"`);
+        console.log(`Word lengths: guess=${word.length}, actual=${this.currentWord.length}`);
+        console.log(`Character codes - guess:`, Array.from(word).map(c => c.charCodeAt(0)));
+        console.log(`Character codes - actual:`, Array.from(this.currentWord).map(c => c.charCodeAt(0)));
+        console.log(`Word comparison: "${word}" === "${this.currentWord}" = ${word === this.currentWord}`);
         
         if (word === this.currentWord) {
             this.gameState = 'finished';
             this.winner = 'guessers';
             this.winnerName = this.players.get(playerId)?.name || 'Unknown Player';
-            console.log(`Correct guess! Winner: ${this.winnerName}`);
+            console.log(`✅ Correct guess! Winner: ${this.winnerName}`);
             return { success: true, correct: true, gameWon: true, isWordGuess: true, winner: this.winnerName };
         } else {
-            this.currentHealth--;
-            console.log(`Incorrect guess. Health: ${this.currentHealth}/${this.maxHealth}`);
-            
-            if (this.currentHealth <= 0) {
-                this.gameState = 'finished';
-                this.winner = 'host';
-                return { success: true, correct: false, gameOver: true, isWordGuess: true };
-            }
-            
+            // Incorrect word guess - just mark as incorrect but don't end game or reduce health
+            console.log(`❌ Incorrect word guess: "${word}" - game continues`);
             return { success: true, correct: false, gameOver: false, isWordGuess: true };
         }
     }    getGameState() {
