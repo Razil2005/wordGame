@@ -238,15 +238,24 @@ io.on('connection', (socket) => {
             players.set(socket.id, player);
         }
 
-        console.log('Adding player to room...');
-        // Allow joining even during gameplay - no restrictions
+        console.log('Adding player to room...', player.name);
+        
+        // Check if player is already in this room
+        if (room.players.has(socket.id)) {
+            console.log('Player already in room, updating instead of adding');
+        }
+        
+        // Add player to room (this will update if already exists)
         room.addPlayer(socket.id, player.name);
         player.roomId = roomId;
         socket.join(roomId);
         
         // Get current game state
-        const currentGameState = room.getGameState();        console.log('Sending roomJoined event to:', socket.id);
-        // Send success response to the joining player multiple times to ensure delivery
+        const currentGameState = room.getGameState();
+        console.log('Current room state - players:', currentGameState.players.length);
+
+        console.log('Sending roomJoined event to:', socket.id);
+        // Send success response to the joining player
         const roomJoinedData = { 
             roomId, 
             gameState: currentGameState,

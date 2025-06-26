@@ -58,6 +58,11 @@ class GameClient {
         this.newGameBtn = document.getElementById('newGameBtn');
         this.leaveRoomBtn = document.getElementById('leaveRoomBtn');
         
+        console.log('Game over buttons found:', {
+            newGameBtn: !!this.newGameBtn,
+            leaveRoomBtn: !!this.leaveRoomBtn
+        });
+        
         // Legacy elements (for compatibility)
         this.guessInput = document.getElementById('letterInput'); // Use letterInput as guessInput
         this.submitGuessBtn = document.getElementById('guessBtn'); // Use guessBtn as submitGuessBtn
@@ -196,6 +201,9 @@ class GameClient {
                 console.log('New Game button clicked');
                 this.startNewGame();
             });
+            console.log('New Game button event listener added');
+        } else {
+            console.error('newGameBtn not found!');
         }
 
         // Leave Room button
@@ -204,6 +212,9 @@ class GameClient {
                 console.log('Leave Room button clicked');
                 this.leaveRoom();
             });
+            console.log('Leave Room button event listener added');
+        } else {
+            console.error('leaveRoomBtn not found!');
         }
 
         console.log('All events bound successfully');
@@ -268,12 +279,15 @@ class GameClient {
 
         // Handle when a new player joins the room
         this.socket.on('playerJoined', (gameState) => {
-            console.log('Player joined:', gameState);
-            // Only update if we're not the joining player and are already in the room
-            if (this.currentScreen === 'gameRoom') {
-                this.gameState = gameState;
-                this.updateGameDisplay();
-                this.showNotification('A player joined the room', 'info');
+            console.log('Player joined event received:', gameState);
+            // Only update if we're already in the game room and this isn't our own join
+            if (this.currentScreen === 'gameRoom' && this.gameState) {
+                // Add delay to prevent race condition with roomJoined
+                setTimeout(() => {
+                    this.gameState = gameState;
+                    this.updateGameDisplay();
+                    this.showNotification('A player joined the room', 'info');
+                }, 100);
             }
         });
 
@@ -597,6 +611,8 @@ class GameClient {
     }
 
     showGameOver(won, winner = null) {
+        console.log('showGameOver called, won:', won, 'winner:', winner);
+        
         const gameOverArea = document.getElementById('gameOverArea');
         const waitingArea = document.getElementById('waitingArea');
         const gamePlayArea = document.getElementById('gamePlayArea');
@@ -627,160 +643,92 @@ class GameClient {
             revealedWord.textContent = this.gameState.currentWord;
         }
         
-        // Show appropriate buttons
-        const newGameBtn = document.getElementById('newGameBtn');
-        const leaveRoomBtn = document.getElementById('leaveRoomBtn');
-        
-        if (newGameBtn) {
-            newGameBtn.style.display = this.isHost ? 'inline-block' : 'none';
+        // Re-acquire button references in case they weren't available during init
+        if (!this.newGameBtn) {
+            this.newGameBtn = document.getElementById('newGameBtn');
+            console.log('Re-acquired newGameBtn:', !!this.newGameBtn);
+        }
+        if (!this.leaveRoomBtn) {
+            this.leaveRoomBtn = document.getElementById('leaveRoomBtn');
+            console.log('Re-acquired leaveRoomBtn:', !!this.leaveRoomBtn);
         }
         
-        if (leaveRoomBtn) {
-            leaveRoomBtn.style.display = 'inline-block';
+        // Re-bind event listeners if buttons weren't bound initially
+        this.bindGameOverButtons();
+        
+        // Show appropriate buttons using stored references
+        if (this.newGameBtn) {
+            this.newGameBtn.style.display = this.isHost ? 'inline-block' : 'none';
+            console.log('New Game button display set to:', this.isHost ? 'inline-block' : 'none');
+        } else {
+            console.error('newGameBtn reference not found in showGameOver');
         }
-    }
-
-    updateGameDisplay() {
-        console.log('updateGameDisplay called, gameState:', this.gameState);
-        if (!this.gameState) {
-            console.log('No game state available');
-            return;
-        }
-
-        // Update players list
-        this.updatePlayersList();
-
-        // Update health display
-        this.updateHealthDisplay();
-
-        // Update game areas based on game state
-        if (this.gameState.gameState === 'waiting') {
-            this.showWaitingArea();
-        } else if (this.gameState.gameState === 'playing') {
-            this.showGamePlay();
-        } else if (this.gameState.gameState === 'finished') {
-            this.showGameOver(this.gameState.winner === 'guessers', this.gameState.winnerName);
+        
+        if (this.leaveRoomBtn) {
+            this.leaveRoomBtn.style.display = 'inline-block';
+            console.log('Leave Room button display set to: inline-block');
+        } else {
+            console.error('leaveRoomBtn reference not found in showGameOver');
         }
     }
-
-    updatePlayersList() {
-        console.log('updatePlayersList called');
-        if (!this.playersDisplay) {
-            console.error('playersDisplay element not found!');
-            return;
-        }
-        
-        // Clear the display completely
-        this.playersDisplay.innerHTML = '';
-        
-        if (!this.gameState || !this.gameState.players) {
-            console.log('No players data available');
-            return;
-        }
-        
-        console.log('Updating players list with:', this.gameState.players);
-        
-        // Create a Set to track unique players and avoid duplicates
-        const uniquePlayers = new Map();
-        this.gameState.players.forEach(player => {
-            uniquePlayers.set(player.id, player);
-        });
-        
-        // Add each unique player to the display
-        uniquePlayers.forEach(player => {
-            const playerElement = document.createElement('div');
-            playerElement.className = `player-item ${player.isHost ? 'host' : ''}`;
-            playerElement.setAttribute('data-player-id', player.id); // Add for debugging
-            
-            playerElement.innerHTML = `
-                <span class="player-name">${player.name}</span>
-                ${player.isHost ? '<span class="player-badge">HOST</span>' : '<span class="player-badge">PLAYER</span>'}
-            `;
-            
-            this.playersDisplay.appendChild(playerElement);
-        });
-        
-        console.log(`Added ${uniquePlayers.size} unique players to display`);
-    }
-
-    updateHealthDisplay() {
-        if (!this.heartsDisplay || !this.gameState) return;
-        
-        const hearts = [];
-        for (let i = 0; i < this.gameState.maxHealth; i++) {
-            if (i < this.gameState.currentHealth) {
-                hearts.push('<span class="heart">❤️</span>');
-            } else {
-                hearts.push('<span class="heart empty">🤍</span>');
-            }
-        }
-        this.heartsDisplay.innerHTML = hearts.join('');
-    }
-
-    showWaitingArea() {
-        console.log('showWaitingArea called, isHost:', this.isHost);
-        
-        // Find the waiting area elements
-        const waitingArea = document.getElementById('waitingArea');
-        const gamePlayArea = document.getElementById('gamePlayArea');
-        const gameOverArea = document.getElementById('gameOverArea');
-        
-        if (waitingArea) waitingArea.style.display = 'block';
-        if (gamePlayArea) gamePlayArea.style.display = 'none';
-        if (gameOverArea) gameOverArea.style.display = 'none';
-        
-        // Show start button for host if there are players
-        if (this.startGameBtn) {
-            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 1) {
-                console.log('Showing start game button for host');
-                this.startGameBtn.style.display = 'block';
-            } else {
-                console.log('Hiding start game button - isHost:', this.isHost, 'playerCount:', this.gameState?.players?.length);
-                this.startGameBtn.style.display = 'none';
-            }
-        }
-    }
-
-    showGamePlay() {
-        const waitingArea = document.getElementById('waitingArea');
-        const gamePlayArea = document.getElementById('gamePlayArea');
-        const gameOverArea = document.getElementById('gameOverArea');
-        
-        if (waitingArea) waitingArea.style.display = 'none';
-        if (gamePlayArea) gamePlayArea.style.display = 'block';
-        if (gameOverArea) gameOverArea.style.display = 'none';
-        
-        // Update word mask
-        if (this.wordDisplay && this.gameState) {
-            this.wordDisplay.textContent = this.gameState.wordMask || '';
-        }
-        
-        // Update hints
-        this.updateHints();
-        
-        // Update guessed letters
-        this.updateGuessedLetters();
-        
-        // Show letter input for all players
-        if (this.letterInputSection) {
-            this.letterInputSection.style.display = 'block';
-        }
-    }
-
-    updateHints() {
-        if (!this.hintsList || !this.gameState) return;
-        
-        this.hintsList.innerHTML = '';
-        
-        if (this.gameState.hints) {
-            this.gameState.hints.forEach(hint => {
-                const li = document.createElement('li');
-                li.textContent = hint;
-                this.hintsList.appendChild(li);
+    
+    bindGameOverButtons() {
+        // Ensure buttons have event listeners (in case they weren't bound initially)
+        if (this.newGameBtn && !this.newGameBtn.hasAttribute('data-bound')) {
+            this.newGameBtn.addEventListener('click', () => {
+                console.log('New Game button clicked (re-bound)');
+                this.startNewGame();
             });
+            this.newGameBtn.setAttribute('data-bound', 'true');
+            console.log('New Game button re-bound with event listener');
+        }
+        
+        if (this.leaveRoomBtn && !this.leaveRoomBtn.hasAttribute('data-bound')) {
+            this.leaveRoomBtn.addEventListener('click', () => {
+                console.log('Leave Room button clicked (re-bound)');
+                this.leaveRoom();
+            });
+            this.leaveRoomBtn.setAttribute('data-bound', 'true');
+            console.log('Leave Room button re-bound with event listener');
         }
     }
-
+    
+    startNewGame() {
+        console.log('Starting new game...');
+        
+        if (!this.socket.connected) {
+            this.showNotification('Not connected to server', 'error');
+            return;
+        }
+        
+        if (!this.isHost) {
+            this.showNotification('Only the host can start a new game', 'error');
+            return;
+        }
+        
+        // Emit newGame event to server
+        this.socket.emit('newGame');
+        this.showNotification('Starting new game...', 'info');
+    }
+    
+    leaveRoom() {
+        console.log('Leaving room...');
+        
+        // Reset all game state
+        this.roomId = '';
+        this.isHost = false;
+        this.gameState = null;
+        this.playerName = '';
+        
+        // Reset form values
+        if (this.playerNameInput) this.playerNameInput.value = '';
+        if (this.roomCodeInput) this.roomCodeInput.value = '';
+        
+        // Show welcome screen
+        this.showWelcomeScreen();
+        this.showNotification('Left the room', 'info');
+    }
+    
     showNotification(message, type = 'info') {
         console.log('Notification:', message, type);
         

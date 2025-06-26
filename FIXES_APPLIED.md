@@ -1,22 +1,39 @@
 # Fixes Applied for Multiplayer Game Issues
 
-## Problem 1: Duplicate Player Names ✅ FIXED
+## Problem 1: Duplicate Player Names ✅ ENHANCED FIXES
 **Issue**: Player names appeared twice in the players list
-**Root Cause**: Multiple event handlers and potential duplicate player entries
-**Fixes Applied**:
-1. **Server-side**: Added logging to `addPlayer` method to track player additions
-2. **Client-side**: Modified `updatePlayersList` to use unique player tracking via Map
-3. **Client-side**: Added data attributes for debugging and preventing duplicates
-4. **Client-side**: Enhanced logging to track player list updates
+**Root Cause**: Multiple event handlers, race conditions, and potential duplicate player entries
+**Enhanced Fixes Applied**:
+1. **Server-side**: 
+   - Enhanced logging in `addPlayer` method to track player additions
+   - Added check for existing players before adding to room
+   - Enhanced join room logging to track player counts
+2. **Client-side**: 
+   - Modified `updatePlayersList` to use unique player tracking via Map
+   - Added delay to `playerJoined` event to prevent race conditions
+   - Enhanced logging to track player list updates
+   - Added data attributes for debugging
 
-## Problem 2: Non-working "New Game" and "Leave Room" Buttons ✅ FIXED
+## Problem 2: Non-working "New Game" and "Leave Room" Buttons ✅ ENHANCED FIXES
 **Issue**: Buttons were visible but clicking them did nothing
-**Root Cause**: Missing function implementations
-**Fixes Applied**:
-1. **Added `startNewGame()` function**:
+**Root Cause**: Missing function implementations and potential DOM reference issues
+**Enhanced Fixes Applied**:
+1. **Enhanced `startNewGame()` function**:
    - Checks if user is connected and is the host
-   - Emits `newGame` event to server
+   - Emits `newGame` event to server (server already handles this correctly)
    - Shows appropriate notifications
+   
+2. **Enhanced `leaveRoom()` function**:
+   - Resets all game state (roomId, isHost, gameState, playerName)
+   - Clears form inputs
+   - Returns to welcome screen
+   - Shows notification
+
+3. **DOM Reference Fixes**:
+   - Added comprehensive logging for button element detection
+   - Fixed `showGameOver` function to use stored button references instead of `getElementById`
+   - Added debug logging for button display properties
+   - Enhanced event listener binding with error checking
    
 2. **Added `leaveRoom()` function**:
    - Resets all game state (roomId, isHost, gameState, playerName)
