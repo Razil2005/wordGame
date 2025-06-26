@@ -268,8 +268,17 @@ class GameClient {
         console.log('Setting up socket listeners...');
         
         this.socket.on('connect', () => {
-            console.log('Socket connected:', this.socket.id);
+            console.log('🔌 Socket connected:', this.socket.id);
             this.showNotification('Connected to server!', 'success');
+            
+            // Test socket communication immediately
+            console.log('🧪 Testing socket communication...');
+            this.socket.emit('test', 'Hello from client');
+        });
+
+        this.socket.on('testResponse', (data) => {
+            console.log('🧪 Test response received:', data);
+            this.showNotification('Socket communication working!', 'success');
         });
 
         this.socket.on('connect_error', (error) => {
@@ -597,16 +606,6 @@ class GameClient {
         }
         
         console.log('🚀 About to emit startGame event...');
-        
-        // Add a timeout to detect if the server responds
-        const timeout = setTimeout(() => {
-            console.error('🚀 No response from server after 5 seconds');
-            this.showNotification('Server not responding. Please try again.', 'error');
-        }, 5000);
-        
-        // Clear timeout when we get a response
-        const originalHandler = this.socket._callbacks?.$gameStarted || [];
-        
         this.socket.emit('startGame');
         console.log('🚀 startGame event emitted successfully');
         this.showNotification('Starting turn-based game...', 'info');

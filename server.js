@@ -57,9 +57,10 @@ const wordList = [
 ];
 
 class GameRoom {
-    constructor(id, hostId) {
+    constructor(id, hostId, hostName) {
         this.id = id;
         this.hostId = hostId;
+        this.hostName = hostName; // Store host name for cross-socket identification
         this.players = new Map();
         this.currentWord = null;
         this.currentHints = [];
@@ -314,6 +315,12 @@ class GameRoom {
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
 
+    // Test event to verify socket communication
+    socket.on('test', (data) => {
+        console.log('🧪 Test event received:', data);
+        socket.emit('testResponse', 'Server received test: ' + data);
+    });
+
     // Store player info
     socket.on('setPlayerName', (playerName) => {
         console.log('👤 setPlayerName event received:', playerName, 'from socket:', socket.id);
@@ -336,8 +343,8 @@ io.on('connection', (socket) => {
             return;
         }
 
-        const room = new GameRoom(roomId, socket.id);
-        console.log('🏠 Room created with ID:', roomId, 'Host:', socket.id);
+        const room = new GameRoom(roomId, socket.id, player.name);
+        console.log('🏠 Room created with ID:', roomId, 'Host:', socket.id, 'Host name:', player.name);
         room.addPlayer(socket.id, player.name);
         rooms.set(roomId, room);
         
@@ -416,8 +423,21 @@ io.on('connection', (socket) => {
         console.log('📦 Room found:', room ? `${room.id} (host: ${room.hostId})` : 'null');
         console.log('📦 All rooms:', Array.from(rooms.keys()));
         
-        if (!room || room.hostId !== socket.id) {
-            console.log('📦 Error: Not host or room not found. Room host:', room?.hostId, 'Current socket:', socket.id);
+        if (!room) {
+            console.log('📦 Error: Room not found');
+            socket.emit('error', 'Room not found');
+            return;
+        }
+        
+        // Check if user is host by socket ID OR by name (for cross-socket compatibility)
+        const isHostBySocket = room.hostId === socket.id;
+        const isHostByName = room.hostName === player?.name;
+        
+        console.log('📦 Host check - By socket:', isHostBySocket, 'By name:', isHostByName);
+        console.log('📦 Room host name:', room.hostName, 'Player name:', player?.name);
+        
+        if (!isHostBySocket && !isHostByName) {
+            console.log('📦 Error: Not host. Room host:', room.hostId, 'Current socket:', socket.id);
             socket.emit('error', 'Only host can start the game');
             return;
         }
