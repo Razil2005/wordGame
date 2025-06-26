@@ -186,13 +186,13 @@ class GameClient {
         this.socket.on('error', (message) => {
             console.log('Socket error received:', message);
             this.showNotification('Error: ' + message, 'error');
-        });
-
-        this.socket.on('roomCreated', (data) => {
+        });        this.socket.on('roomCreated', (data) => {
             console.log('Room created:', data);
             this.roomId = data.roomId;
             this.isHost = true;
+            this.gameState = data.gameState; // Store the game state
             this.showGameRoomScreen();
+            this.updateGameDisplay(); // Update the display to show players and start button
             this.showNotification('Room created successfully!', 'success');
         });        this.socket.on('roomJoined', (data) => {
             console.log('Room joined successfully:', data);
@@ -205,13 +205,31 @@ class GameClient {
             
             this.roomId = data.roomId;
             this.isHost = false;
+            this.gameState = data.gameState; // Store the game state
             this.showGameRoomScreen();
+            this.updateGameDisplay(); // Update the display to show players
             this.showNotification('Successfully joined room!', 'success');
         });
 
         this.socket.on('playerUpdate', (data) => {
             console.log('Player update:', data);
             this.updatePlayersList(data.players);
+        });
+
+        // Handle when a new player joins the room
+        this.socket.on('playerJoined', (gameState) => {
+            console.log('Player joined:', gameState);
+            this.gameState = gameState;
+            this.updateGameDisplay();
+            this.showNotification('A player joined the room', 'info');
+        });
+
+        // Handle when a player leaves the room
+        this.socket.on('playerLeft', (gameState) => {
+            console.log('Player left:', gameState);
+            this.gameState = gameState;
+            this.updateGameDisplay();
+            this.showNotification('A player left the room', 'info');
         });
 
         this.socket.on('gameStarted', (data) => {
@@ -324,13 +342,18 @@ class GameClient {
         this.showScreen('welcome');
         this.roomId = '';
         this.isHost = false;
-    }
-
-    showGameRoomScreen() {
+    }    showGameRoomScreen() {
+        console.log('Showing game room screen, roomId:', this.roomId, 'isHost:', this.isHost);
         this.showScreen('gameRoom');
+        
         if (this.roomCodeDisplay && this.roomId) {
             this.roomCodeDisplay.textContent = this.roomId;
         }
+        
+        // Force update the game display to show current state
+        setTimeout(() => {
+            this.updateGameDisplay();
+        }, 100);
     }
 
     showScreen(screenName) {
@@ -432,37 +455,78 @@ class GameClient {
         }
         
         document.body.removeChild(textArea);
-    }
-
-    updatePlayersList(players) {
-        if (!this.playersDisplay) return;
+    }    updatePlayersList(players) {
+        if (!this.playersDisplay) {
+            console.error('playersDisplay element not found!');
+            return;
+        }
+        
+        console.log('Updating players list with:', players);
         
         this.playersDisplay.innerHTML = '';
+        
+        if (!players || players.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'player-item empty';
+            emptyDiv.textContent = 'No players yet...';
+            this.playersDisplay.appendChild(emptyDiv);
+            return;
+        }
+        
         players.forEach(player => {
             const playerDiv = document.createElement('div');
-            playerDiv.className = 'player';
-            playerDiv.textContent = `${player.name} ${player.isHost ? '(Host)' : ''}`;
+            playerDiv.className = `player-item ${player.isHost ? 'host' : 'guest'}`;
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'player-name';
+            nameSpan.textContent = player.name;
+            
+            const badgeSpan = document.createElement('span');
+            badgeSpan.className = 'player-badge';
+            badgeSpan.textContent = player.isHost ? '👑 HOST' : '👤 PLAYER';
+            
+            playerDiv.appendChild(nameSpan);
+            playerDiv.appendChild(badgeSpan);
+            
             this.playersDisplay.appendChild(playerDiv);
         });
-    }
-
-    updateGameDisplay() {
+        
+        console.log(`Added ${players.length} players to display`);
+    }updateGameDisplay() {
         if (!this.gameState) return;
         
-        // Update word display
-        if (this.wordDisplay) {
-            this.wordDisplay.textContent = this.gameState.currentWord || '';
+        console.log('Updating game display with state:', this.gameState);
+        
+        // Update players list
+        this.updatePlayersList(this.gameState.players || []);
+        
+        // Update hearts display if in game
+        if (this.heartsDisplay && this.gameState.currentHealth !== undefined) {
+            const hearts = '❤️'.repeat(this.gameState.currentHealth || 0);
+            const emptyHearts = '🤍'.repeat((this.gameState.maxHealth || 6) - (this.gameState.currentHealth || 0));
+            this.heartsDisplay.textContent = hearts + emptyHearts;
         }
         
-        // Update hearts display
-        if (this.heartsDisplay) {
-            const hearts = '❤️'.repeat(this.gameState.health || 0);
-            this.heartsDisplay.textContent = hearts;
-        }
-        
-        // Update hint display
-        if (this.hintDisplay && this.gameState.hint) {
-            this.hintDisplay.textContent = `Hint: ${this.gameState.hint}`;
+        // Handle different game states
+        if (this.gameState.gameState === 'waiting') {
+            // Show start button only for host
+            const startBtn = document.getElementById('startGameBtn');
+            if (startBtn && this.isHost && this.gameState.players && this.gameState.players.length >= 1) {
+                startBtn.style.display = 'block';
+                console.log('Showing start button for host');
+            } else if (startBtn) {
+                startBtn.style.display = 'none';
+            }
+        } else if (this.gameState.gameState === 'playing') {
+            // Update word display
+            if (this.wordDisplay && this.gameState.wordMask) {
+                this.wordDisplay.textContent = this.gameState.wordMask;
+            }
+            
+            // Update hint display
+            if (this.hintDisplay && this.gameState.hints && this.gameState.hints.length > 0) {
+                this.hintDisplay.textContent = `Hint: ${this.gameState.hints[0]}`;
+            }
         }
     }
 

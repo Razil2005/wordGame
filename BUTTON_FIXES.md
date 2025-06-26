@@ -5,6 +5,10 @@
 2. ✅ Added proper copy room code functionality
 3. ✅ Improved error handling for server connection
 4. ✅ Enhanced join room functionality with timeout handling
+5. ✅ Fixed players list display - now shows connected users
+6. ✅ Added Start Game button for hosts
+7. ✅ Enhanced player display with host/guest badges
+8. ✅ Added real-time player join/leave notifications
 
 ## To Start the Server:
 
@@ -67,6 +71,14 @@ Game server started successfully
 - Enter the room code from step 2
 - Click "Join Game"
 - Should successfully join the room and show both players
+
+### 5. Test Player Visibility
+- After joining a room, you should see:
+  - Players list with names and badges (👑 HOST, 👤 PLAYER)
+  - Host player highlighted in purple
+  - Guest players in light gray
+  - "Start Game" button visible only to the host
+- When players join/leave, the list updates automatically
 
 ## Common Issues & Solutions:
 
