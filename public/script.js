@@ -237,7 +237,13 @@ class GameClient {
 
         this.socket.on('playerUpdate', (data) => {
             console.log('Player update:', data);
-            this.updatePlayersList(data.players);
+            // Update the game state with the new players list
+            if (this.gameState) {
+                this.gameState.players = data.players;
+            } else {
+                this.gameState = { players: data.players };
+            }
+            this.updateGameDisplay();
         });
 
         // Handle when a new player joins the room
@@ -609,6 +615,154 @@ class GameClient {
         if (leaveRoomBtn) {
             leaveRoomBtn.style.display = 'inline-block';
         }
+    }
+
+    updateGameDisplay() {
+        console.log('updateGameDisplay called, gameState:', this.gameState);
+        if (!this.gameState) {
+            console.log('No game state available');
+            return;
+        }
+
+        // Update players list
+        this.updatePlayersList();
+
+        // Update health display
+        this.updateHealthDisplay();
+
+        // Update game areas based on game state
+        if (this.gameState.gameState === 'waiting') {
+            this.showWaitingArea();
+        } else if (this.gameState.gameState === 'playing') {
+            this.showGamePlay();
+        } else if (this.gameState.gameState === 'finished') {
+            this.showGameOver(this.gameState.winner === 'guessers', this.gameState.winnerName);
+        }
+    }
+
+    updatePlayersList() {
+        console.log('updatePlayersList called');
+        if (!this.playersDisplay) {
+            console.error('playersDisplay element not found!');
+            return;
+        }
+        
+        this.playersDisplay.innerHTML = '';
+        
+        if (!this.gameState || !this.gameState.players) {
+            console.log('No players data available');
+            return;
+        }
+        
+        console.log('Updating players list with:', this.gameState.players);
+        
+        this.gameState.players.forEach(player => {
+            const playerElement = document.createElement('div');
+            playerElement.className = `player-item ${player.isHost ? 'host' : ''}`;
+            
+            playerElement.innerHTML = `
+                <span class="player-name">${player.name}</span>
+                ${player.isHost ? '<span class="player-badge">HOST</span>' : '<span class="player-badge">PLAYER</span>'}
+            `;
+            
+            this.playersDisplay.appendChild(playerElement);
+        });
+    }
+
+    updateHealthDisplay() {
+        if (!this.heartsDisplay || !this.gameState) return;
+        
+        const hearts = [];
+        for (let i = 0; i < this.gameState.maxHealth; i++) {
+            if (i < this.gameState.currentHealth) {
+                hearts.push('<span class="heart">❤️</span>');
+            } else {
+                hearts.push('<span class="heart empty">🤍</span>');
+            }
+        }
+        this.heartsDisplay.innerHTML = hearts.join('');
+    }
+
+    showWaitingArea() {
+        console.log('showWaitingArea called, isHost:', this.isHost);
+        
+        // Find the waiting area elements
+        const waitingArea = document.getElementById('waitingArea');
+        const gamePlayArea = document.getElementById('gamePlayArea');
+        const gameOverArea = document.getElementById('gameOverArea');
+        
+        if (waitingArea) waitingArea.style.display = 'block';
+        if (gamePlayArea) gamePlayArea.style.display = 'none';
+        if (gameOverArea) gameOverArea.style.display = 'none';
+        
+        // Show start button for host if there are players
+        if (this.startGameBtn) {
+            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 1) {
+                console.log('Showing start game button for host');
+                this.startGameBtn.style.display = 'block';
+            } else {
+                console.log('Hiding start game button - isHost:', this.isHost, 'playerCount:', this.gameState?.players?.length);
+                this.startGameBtn.style.display = 'none';
+            }
+        }
+    }
+
+    showGamePlay() {
+        const waitingArea = document.getElementById('waitingArea');
+        const gamePlayArea = document.getElementById('gamePlayArea');
+        const gameOverArea = document.getElementById('gameOverArea');
+        
+        if (waitingArea) waitingArea.style.display = 'none';
+        if (gamePlayArea) gamePlayArea.style.display = 'block';
+        if (gameOverArea) gameOverArea.style.display = 'none';
+        
+        // Update word mask
+        if (this.wordDisplay && this.gameState) {
+            this.wordDisplay.textContent = this.gameState.wordMask || '';
+        }
+        
+        // Update hints
+        this.updateHints();
+        
+        // Update guessed letters
+        this.updateGuessedLetters();
+        
+        // Show letter input for all players
+        if (this.letterInputSection) {
+            this.letterInputSection.style.display = 'block';
+        }
+    }
+
+    updateHints() {
+        if (!this.hintsList || !this.gameState) return;
+        
+        this.hintsList.innerHTML = '';
+        
+        if (this.gameState.hints) {
+            this.gameState.hints.forEach(hint => {
+                const li = document.createElement('li');
+                li.textContent = hint;
+                this.hintsList.appendChild(li);
+            });
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        console.log('Notification:', message, type);
+        
+        if (!this.notification) {
+            console.error('notification element not found!');
+            return;
+        }
+        
+        this.notification.textContent = message;
+        this.notification.className = `notification ${type} show`;
+        
+        setTimeout(() => {
+            if (this.notification) {
+                this.notification.classList.remove('show');
+            }
+        }, 3000);
     }
 }
 
