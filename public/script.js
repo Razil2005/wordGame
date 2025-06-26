@@ -957,8 +957,11 @@ class GameClient {
         // Create a unique set of players based on ID to avoid duplicates
         const uniquePlayers = new Map();
         this.gameState.players.forEach(player => {
+            console.log('Processing player:', player.name, 'ID:', player.id);
             uniquePlayers.set(player.id, player);
         });
+        
+        console.log('Unique players after deduplication:', uniquePlayers.size);
         
         // Add each unique player to the display
         uniquePlayers.forEach(player => {
@@ -997,9 +1000,9 @@ class GameClient {
         if (this.gamePlayArea) this.gamePlayArea.style.display = 'none';
         if (this.gameOverArea) this.gameOverArea.style.display = 'none';
         
-        // Show start button for host if there are at least 2 players
+        // Show start button for host if there are players (lowered to 1 for testing)
         if (this.startGameBtn) {
-            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 2) {
+            if (this.isHost && this.gameState && this.gameState.players && this.gameState.players.length >= 1) {
                 console.log('Showing start game button for host');
                 this.startGameBtn.style.display = 'block';
             } else {

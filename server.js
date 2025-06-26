@@ -150,7 +150,7 @@ class GameRoom {
     }
     
     startGame() {
-        if (this.players.size < 2) return false; // Need at least 2 players for turn-based
+        if (this.players.size < 1) return false; // Allow single player for testing
         
         // Initialize turn-based system
         this.updatePlayerOrder();
@@ -419,7 +419,7 @@ io.on('connection', (socket) => {
             io.to(player.roomId).emit('gameStarted', room.getGameState());
         } else {
             console.log('📦 Error: Not enough players');
-            socket.emit('error', 'Need at least 2 players to start turn-based game');
+            socket.emit('error', 'Need at least 1 player to start turn-based game');
         }
     });
 
