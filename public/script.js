@@ -290,12 +290,10 @@ class GameClient {
             console.log('Player joined event received:', gameState);
             // Only update if we're already in the game room and this isn't our own join
             if (this.currentScreen === 'gameRoom' && this.gameState) {
-                // Add delay to prevent race condition with roomJoined
-                setTimeout(() => {
-                    this.gameState = gameState;
-                    this.updateGameDisplay();
-                    this.showNotification('A player joined the room', 'info');
-                }, 100);
+                console.log('Updating from playerJoined event');
+                this.gameState = gameState;
+                this.updateGameDisplay();
+                this.showNotification('A player joined the room', 'info');
             }
         });
 
@@ -514,13 +512,14 @@ class GameClient {
             return;
         }
         
-        const guess = this.guessInput?.value?.trim()?.toLowerCase();
+        const guess = this.guessInput?.value?.trim()?.toUpperCase();
         if (!guess) {
             this.showNotification('Please enter a guess', 'error');
             return;
         }
         
-        this.socket.emit('guess', guess);
+        console.log('Submitting guess:', guess);
+        this.socket.emit('guessLetter', guess);
         this.guessInput.value = '';
     }
 
@@ -795,9 +794,18 @@ class GameClient {
         }
         
         console.log('Updating players list with:', this.gameState.players);
+        
+        // Clear the list completely to avoid duplicates
         this.playersList.innerHTML = '';
         
+        // Create a unique set of players based on ID to avoid duplicates
+        const uniquePlayers = new Map();
         this.gameState.players.forEach(player => {
+            uniquePlayers.set(player.id, player);
+        });
+        
+        // Add each unique player to the display
+        uniquePlayers.forEach(player => {
             const playerElement = document.createElement('div');
             playerElement.className = `player-item ${player.isHost ? 'host' : ''}`;
             

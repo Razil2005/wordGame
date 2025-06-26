@@ -156,14 +156,17 @@ class GameRoom {
         }
     }    guessWord(word, playerId) {
         word = word.toUpperCase().trim();
+        console.log(`Player ${playerId} guessing word: "${word}" vs current word: "${this.currentWord}"`);
         
         if (word === this.currentWord) {
             this.gameState = 'finished';
             this.winner = 'guessers';
             this.winnerName = this.players.get(playerId)?.name || 'Unknown Player';
+            console.log(`Correct guess! Winner: ${this.winnerName}`);
             return { success: true, correct: true, gameWon: true, isWordGuess: true, winner: this.winnerName };
         } else {
             this.currentHealth--;
+            console.log(`Incorrect guess. Health: ${this.currentHealth}/${this.maxHealth}`);
             
             if (this.currentHealth <= 0) {
                 this.gameState = 'finished';
@@ -296,15 +299,20 @@ io.on('connection', (socket) => {
         
         // Allow all players (including host) to guess in competitive mode
         guess = guess.toUpperCase().trim();
+        console.log(`Guess received from ${player.name} (${socket.id}): "${guess}"`);
         
         let result;
         if (guess.length === 1) {
             // Single letter guess
+            console.log('Processing single letter guess');
             result = room.guessLetter(guess);
         } else {
             // Word guess - pass player ID to track winner
+            console.log('Processing word guess');
             result = room.guessWord(guess, socket.id);
         }
+        
+        console.log('Guess result:', result);
         
         if (result.success) {
             const eventData = {
@@ -318,6 +326,7 @@ io.on('connection', (socket) => {
                 playerName: player.name
             };
             
+            console.log('Sending letterGuessed event to room:', eventData);
             io.to(player.roomId).emit('letterGuessed', eventData);
         } else {
             socket.emit('error', result.message);
