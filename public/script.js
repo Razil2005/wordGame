@@ -335,7 +335,12 @@ class GameClient {
             if (data.correct) {
                 if (data.isWordGuess) {
                     if (data.winner) {
+                        // Show winner announcement to all players
                         this.showNotification(`🎉 ${data.winner} won by guessing "${data.guess}"!`, 'success');
+                        // Also show a more prominent winner message
+                        setTimeout(() => {
+                            this.showNotification(`🏆 GAME WON BY ${data.winner.toUpperCase()}! 🏆`, 'success');
+                        }, 1000);
                     } else {
                         this.showNotification(`✅ "${data.guess}" is correct!`, 'success');
                     }
@@ -344,11 +349,15 @@ class GameClient {
                 }
                 
                 if (data.gameWon) {
-                    this.showGameOver(true, data.winner);
+                    // Add a delay before showing game over screen to let the notification be seen
+                    setTimeout(() => {
+                        this.showGameOver(true, data.winner);
+                    }, 2000);
                 }
             } else {
                 if (data.isWordGuess) {
-                    this.showNotification(`❌ "${data.guess}" is not the word`, 'error');
+                    // Show who made the incorrect guess to all players
+                    this.showNotification(`❌ ${data.playerName} guessed "${data.guess}" - not the word`, 'error');
                 } else {
                     this.showNotification(`❌ "${data.guess}" is not in the word`, 'error');
                 }
@@ -360,6 +369,19 @@ class GameClient {
             
             // Update guessed letters display
             this.updateGuessedLetters();
+        });
+
+        // Handle winner announcement
+        this.socket.on('gameWinner', (data) => {
+            console.log('Winner announcement received:', data);
+            
+            // Show a prominent winner notification to all players
+            this.showNotification(data.message, 'success');
+            
+            // Also show an alert for maximum visibility
+            setTimeout(() => {
+                alert(`🏆 WINNER: ${data.winnerName} 🏆\n\nGuessed the word: "${data.winningWord}"\n\nCongratulations!`);
+            }, 500);
         });
     }    joinRoom() {
         console.log('joinRoom function called');
@@ -635,8 +657,9 @@ class GameClient {
         if (gameResult) {
             if (won) {
                 if (winner) {
-                    gameResult.textContent = `🎉 ${winner} Won!`;
+                    gameResult.textContent = `� ${winner} Won the Game! 🏆`;
                     gameResult.className = 'win';
+                    console.log(`Displaying winner: ${winner} to all players`);
                 } else {
                     gameResult.textContent = '🎉 You Won!';
                     gameResult.className = 'win';

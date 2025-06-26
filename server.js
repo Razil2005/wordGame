@@ -323,6 +323,16 @@ io.on('connection', (socket) => {
             
             console.log('Sending letterGuessed event to room:', eventData);
             io.to(player.roomId).emit('letterGuessed', eventData);
+            
+            // If someone won, send a special winner announcement to all players
+            if (result.gameWon && result.winner) {
+                console.log(`🏆 Broadcasting winner announcement: ${result.winner}`);
+                io.to(player.roomId).emit('gameWinner', {
+                    winnerName: result.winner,
+                    winningWord: guess,
+                    message: `🏆 ${result.winner} won by guessing "${guess}"! 🏆`
+                });
+            }
         } else {
             socket.emit('error', result.message);
         }
