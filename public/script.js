@@ -39,18 +39,25 @@ class GameClient {
         // Join room screen elements
         this.roomCodeInput = document.getElementById('roomCodeInput');
         this.joinGameBtn = document.getElementById('joinGameBtn');
-        this.backToWelcomeBtn = document.getElementById('backToWelcomeBtn');
-
-        // Game room elements  
+        this.backToWelcomeBtn = document.getElementById('backToWelcomeBtn');        // Game room elements  
         this.roomCodeDisplay = document.getElementById('roomCode');
         this.copyRoomCodeBtn = document.getElementById('copyRoomCodeBtn');
         this.playersDisplay = document.getElementById('playersList');
-        this.wordDisplay = document.getElementById('wordDisplay');
-        this.guessInput = document.getElementById('guessInput');
-        this.submitGuessBtn = document.getElementById('submitGuessBtn');
         this.heartsDisplay = document.getElementById('heartsDisplay');
-        this.hintDisplay = document.getElementById('hintDisplay');
         this.startGameBtn = document.getElementById('startGameBtn');
+        
+        // Gameplay elements
+        this.wordDisplay = document.getElementById('wordMask');
+        this.hintsList = document.getElementById('hintsList');
+        this.letterInput = document.getElementById('letterInput');
+        this.guessBtn = document.getElementById('guessBtn');
+        this.guessedLettersDisplay = document.getElementById('guessedLettersDisplay');
+        this.letterInputSection = document.getElementById('letterInputSection');
+        
+        // Legacy elements (for compatibility)
+        this.guessInput = document.getElementById('letterInput'); // Use letterInput as guessInput
+        this.submitGuessBtn = document.getElementById('guessBtn'); // Use guessBtn as submitGuessBtn
+        this.hintDisplay = document.getElementById('hintsList'); // Use hintsList as hintDisplay
         
         // Notification
         this.notification = document.getElementById('notification');
@@ -136,6 +143,14 @@ class GameClient {
             });
         }
 
+        // Guess button (gameplay)
+        if (this.guessBtn) {
+            this.guessBtn.addEventListener('click', () => {
+                console.log('Guess button clicked');
+                this.makeGuess();
+            });
+        }
+
         // Enter key for room code input
         if (this.roomCodeInput) {
             this.roomCodeInput.addEventListener('keypress', (e) => {
@@ -150,6 +165,15 @@ class GameClient {
             this.guessInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     this.submitGuess();
+                }
+            });
+        }
+
+        // Enter key for letter input (gameplay)
+        if (this.letterInput) {
+            this.letterInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.makeGuess();
                 }
             });
         }
@@ -248,6 +272,45 @@ class GameClient {
         this.socket.on('gameEnded', (data) => {
             console.log('Game ended:', data);
             this.showNotification(`Game ended! ${data.message}`, 'info');
+        });
+
+        // Handle letter/word guesses
+        this.socket.on('letterGuessed', (data) => {
+            console.log('Letter guessed response:', data);
+            
+            // Update game state
+            this.gameState = data.gameState;
+            this.updateGameDisplay();
+            
+            // Show result
+            if (data.correct) {
+                if (data.isWordGuess) {
+                    if (data.winner) {
+                        this.showNotification(`🎉 ${data.winner} won by guessing "${data.guess}"!`, 'success');
+                    } else {
+                        this.showNotification(`✅ "${data.guess}" is correct!`, 'success');
+                    }
+                } else {
+                    this.showNotification(`✅ "${data.guess}" is in the word!`, 'success');
+                }
+                
+                if (data.gameWon) {
+                    this.showGameOver(true, data.winner);
+                }
+            } else {
+                if (data.isWordGuess) {
+                    this.showNotification(`❌ "${data.guess}" is not the word`, 'error');
+                } else {
+                    this.showNotification(`❌ "${data.guess}" is not in the word`, 'error');
+                }
+                
+                if (data.gameOver) {
+                    this.showGameOver(false);
+                }
+            }
+            
+            // Update guessed letters display
+            this.updateGuessedLetters();
         });
     }    joinRoom() {
         console.log('joinRoom function called');
@@ -409,6 +472,30 @@ class GameClient {
         this.guessInput.value = '';
     }
 
+    makeGuess() {
+        if (!this.gameState || this.gameState.gameState !== 'playing') {
+            this.showNotification('Game is not active', 'error');
+            return;
+        }
+        
+        const guess = this.letterInput?.value?.trim()?.toUpperCase();
+        if (!guess) {
+            this.showNotification('Please enter a letter or word', 'error');
+            return;
+        }
+        
+        // Validate input (letters only)
+        if (!/^[A-Z]+$/.test(guess)) {
+            this.showNotification('Please enter only letters', 'error');
+            return;
+        }
+        
+        console.log('Making guess:', guess);
+        this.socket.emit('guessLetter', guess);
+        this.letterInput.value = '';
+        this.showNotification(`Guessed: ${guess}`, 'info');
+    }
+
     copyRoomCode() {
         if (!this.roomId) {
             this.showNotification('No room code to copy', 'error');
@@ -455,91 +542,72 @@ class GameClient {
         }
         
         document.body.removeChild(textArea);
-    }    updatePlayersList(players) {
-        if (!this.playersDisplay) {
-            console.error('playersDisplay element not found!');
-            return;
-        }
+    }
+
+    updateGuessedLetters() {
+        if (!this.guessedLettersDisplay || !this.gameState) return;
         
-        console.log('Updating players list with:', players);
+        this.guessedLettersDisplay.innerHTML = '';
         
-        this.playersDisplay.innerHTML = '';
-        
-        if (!players || players.length === 0) {
-            const emptyDiv = document.createElement('div');
-            emptyDiv.className = 'player-item empty';
-            emptyDiv.textContent = 'No players yet...';
-            this.playersDisplay.appendChild(emptyDiv);
-            return;
-        }
-        
-        players.forEach(player => {
-            const playerDiv = document.createElement('div');
-            playerDiv.className = `player-item ${player.isHost ? 'host' : 'guest'}`;
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'player-name';
-            nameSpan.textContent = player.name;
-            
-            const badgeSpan = document.createElement('span');
-            badgeSpan.className = 'player-badge';
-            badgeSpan.textContent = player.isHost ? '👑 HOST' : '👤 PLAYER';
-            
-            playerDiv.appendChild(nameSpan);
-            playerDiv.appendChild(badgeSpan);
-            
-            this.playersDisplay.appendChild(playerDiv);
-        });
-        
-        console.log(`Added ${players.length} players to display`);
-    }updateGameDisplay() {
-        if (!this.gameState) return;
-        
-        console.log('Updating game display with state:', this.gameState);
-        
-        // Update players list
-        this.updatePlayersList(this.gameState.players || []);
-        
-        // Update hearts display if in game
-        if (this.heartsDisplay && this.gameState.currentHealth !== undefined) {
-            const hearts = '❤️'.repeat(this.gameState.currentHealth || 0);
-            const emptyHearts = '🤍'.repeat((this.gameState.maxHealth || 6) - (this.gameState.currentHealth || 0));
-            this.heartsDisplay.textContent = hearts + emptyHearts;
-        }
-        
-        // Handle different game states
-        if (this.gameState.gameState === 'waiting') {
-            // Show start button only for host
-            const startBtn = document.getElementById('startGameBtn');
-            if (startBtn && this.isHost && this.gameState.players && this.gameState.players.length >= 1) {
-                startBtn.style.display = 'block';
-                console.log('Showing start button for host');
-            } else if (startBtn) {
-                startBtn.style.display = 'none';
-            }
-        } else if (this.gameState.gameState === 'playing') {
-            // Update word display
-            if (this.wordDisplay && this.gameState.wordMask) {
-                this.wordDisplay.textContent = this.gameState.wordMask;
-            }
-            
-            // Update hint display
-            if (this.hintDisplay && this.gameState.hints && this.gameState.hints.length > 0) {
-                this.hintDisplay.textContent = `Hint: ${this.gameState.hints[0]}`;
-            }
+        if (this.gameState.guessedLetters && this.gameState.guessedLetters.length > 0) {
+            this.gameState.guessedLetters.forEach(letter => {
+                const letterSpan = document.createElement('span');
+                letterSpan.className = 'guessed-letter';
+                letterSpan.textContent = letter;
+                
+                // Check if letter is correct (in the word)
+                if (this.gameState.currentWord && this.gameState.currentWord.includes(letter)) {
+                    letterSpan.classList.add('correct');
+                } else {
+                    letterSpan.classList.add('incorrect');
+                }
+                
+                this.guessedLettersDisplay.appendChild(letterSpan);
+            });
         }
     }
 
-    showNotification(message, type = 'info') {
-        console.log('Notification:', message, type);
+    showGameOver(won, winner = null) {
+        const gameOverArea = document.getElementById('gameOverArea');
+        const waitingArea = document.getElementById('waitingArea');
+        const gamePlayArea = document.getElementById('gamePlayArea');
         
-        if (this.notification) {
-            this.notification.textContent = message;
-            this.notification.className = `notification ${type} show`;
-            
-            setTimeout(() => {
-                this.notification.classList.remove('show');
-            }, 3000);
+        if (waitingArea) waitingArea.style.display = 'none';
+        if (gamePlayArea) gamePlayArea.style.display = 'none';
+        if (gameOverArea) gameOverArea.style.display = 'block';
+        
+        const gameResult = document.getElementById('gameResult');
+        const revealedWord = document.getElementById('revealedWord');
+        
+        if (gameResult) {
+            if (won) {
+                if (winner) {
+                    gameResult.textContent = `🎉 ${winner} Won!`;
+                    gameResult.className = 'win';
+                } else {
+                    gameResult.textContent = '🎉 You Won!';
+                    gameResult.className = 'win';
+                }
+            } else {
+                gameResult.textContent = '💀 Game Over!';
+                gameResult.className = 'lose';
+            }
+        }
+        
+        if (revealedWord && this.gameState && this.gameState.currentWord) {
+            revealedWord.textContent = this.gameState.currentWord;
+        }
+        
+        // Show appropriate buttons
+        const newGameBtn = document.getElementById('newGameBtn');
+        const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+        
+        if (newGameBtn) {
+            newGameBtn.style.display = this.isHost ? 'inline-block' : 'none';
+        }
+        
+        if (leaveRoomBtn) {
+            leaveRoomBtn.style.display = 'inline-block';
         }
     }
 }
